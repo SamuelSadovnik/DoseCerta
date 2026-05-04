@@ -1,0 +1,85 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dosecerta-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dosecerta}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dosecerta}
+      POSTGRES_DB: ${POSTGRES_DB:-dosecerta}
+    ports:
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dosecerta}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: dosecerta-auth
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: ${POSTGRES_USER:-dosecerta}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-dosecerta}
+      DATABASE_NAME: ${POSTGRES_DB:-dosecerta}
+      DATABASE_SCHEMA: auth_db
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+
+  core-service:
+    build:
+      context: ./core-service
+      dockerfile: Dockerfile
+    container_name: dosecerta-core
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 3002
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: ${POSTGRES_USER:-dosecerta}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-dosecerta}
+      DATABASE_NAME: ${POSTGRES_DB:-dosecerta}
+      DATABASE_SCHEMA: core_db
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3002:3002"
+
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: dosecerta-gateway
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      AUTH_SERVICE_URL: http://auth-service:3001
+      CORE_SERVICE_URL: http://core-service:3002
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
+    depends_on:
+      - auth-service
+      - core-service
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres_data:
