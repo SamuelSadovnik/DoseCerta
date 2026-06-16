@@ -119,14 +119,28 @@ services:
       - dosecerta
 
   ms-notification:
-    image: node:22-alpine
-    profiles: ["future"]
-    command: ["sh", "-c", "echo ms-notification will be implemented in etapa 3"]
+    build:
+      context: ./ms-notification
+    restart: unless-stopped
     depends_on:
       postgres-notification:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      ms-linking:
+        condition: service_started
+    environment:
+      PORT: ${MS_NOTIFICATION_PORT:-3004}
+      DATABASE_URL: ${MS_NOTIFICATION_DATABASE_URL:-postgres://postgres:postgres@postgres-notification:5432/ms_notification}
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:-admin}:${RABBITMQ_DEFAULT_PASS:-admin}@rabbitmq:5672
+      API_KEY: ${MS_NOTIFICATION_API_KEY:-dosecerta-internal-key-notification}
+      ALLOWED_IPS: ${MS_NOTIFICATION_ALLOWED_IPS:-127.0.0.1,::1,::ffff:127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+      PUSH_PROVIDER: ${MS_NOTIFICATION_PUSH_PROVIDER:-mock}
+      FCM_SERVER_KEY: ${MS_NOTIFICATION_FCM_SERVER_KEY:-}
+      LINKING_SERVICE_URL: ${MS_NOTIFICATION_LINKING_SERVICE_URL:-http://ms-linking:3003}
+      LINKING_SERVICE_API_KEY: ${MS_LINKING_API_KEY:-dosecerta-internal-key-linking}
+    ports:
+      - "${MS_NOTIFICATION_PORT:-3004}:${MS_NOTIFICATION_PORT:-3004}"
     networks:
       - dosecerta
 

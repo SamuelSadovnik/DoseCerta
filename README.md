@@ -10,6 +10,7 @@ Aplicativo mobile Flutter com backend NestJS e microservicos independentes para 
 | `backend/` | API principal com gateway, auth-service e core-service |
 | `ms-linking/` | Microservico de vinculacao responsavel/dependente |
 | `ms-scheduler/` | Microservico agendador de doses |
+| `ms-notification/` | Microservico de notificacoes push e historico |
 
 ## Microservicos
 
@@ -32,14 +33,19 @@ Servico interno sem API REST publica. Sincroniza doses pendentes da API principa
 
 ### ms-notification
 
-Servico reservado para a proxima etapa.
+Servico REST e consumidor RabbitMQ responsavel por registrar tokens de dispositivos, consumir eventos de dose/vinculo, enviar push em modo mock/FCM e manter historico de notificacoes.
+
+- Porta: `3004`
+- Swagger: `http://localhost:3004/api/docs`
+- Banco proprio: `postgres-notification`
+- RabbitMQ queue: `ms-notification.events.queue`
 
 ## Rodar com Docker
 
 Subir os microservicos e infraestrutura da raiz:
 
 ```bash
-docker compose up --build -d ms-linking ms-scheduler
+docker compose up --build -d ms-linking ms-scheduler ms-notification
 ```
 
 Subir a API principal:
@@ -57,6 +63,7 @@ Portas principais:
 | Auth Service | `http://localhost:3001` |
 | Core Service | `http://localhost:3002` |
 | ms-linking | `http://localhost:3003` |
+| ms-notification | `http://localhost:3004` |
 | RabbitMQ Management | `http://localhost:15672` |
 
 Credenciais padrao do RabbitMQ: `admin` / `admin`.
@@ -70,6 +77,7 @@ cp .env.example .env
 cp backend/.env.example backend/.env
 cp ms-linking/.env.example ms-linking/.env
 cp ms-scheduler/.env.example ms-scheduler/.env
+cp ms-notification/.env.example ms-notification/.env
 ```
 
 Chaves internas relevantes:
@@ -79,6 +87,7 @@ Chaves internas relevantes:
 | `MS_LINKING_API_KEY` | Chave usada pelo core-service para chamar o ms-linking |
 | `CORE_INTERNAL_API_KEY` | Chave exigida pelo core-service na rota interna de doses |
 | `MS_SCHEDULER_MAIN_API_KEY` | Chave enviada pelo ms-scheduler ao core-service |
+| `MS_NOTIFICATION_API_KEY` | Chave usada nas rotas REST do ms-notification |
 
 ## Rodar o app Flutter no macOS
 
@@ -96,5 +105,6 @@ O app macOS usa `http://localhost:3000` como API base por padrao.
 docker ps
 docker compose logs -f ms-linking
 docker compose logs -f ms-scheduler
+docker compose logs -f ms-notification
 cd backend && docker compose logs -f gateway core-service auth-service
 ```
