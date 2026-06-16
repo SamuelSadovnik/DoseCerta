@@ -23,7 +23,7 @@ export class DependentsController {
 
   @Post()
   create(@CurrentUser() user: RequestUser, @Body() dto: CreateDependentDto) {
-    return this.dependents.create(user.id, dto);
+    return this.dependents.create(user, dto);
   }
 
   @Post('link')

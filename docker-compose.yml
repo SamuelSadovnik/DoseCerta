@@ -1,0 +1,131 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-admin}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 20s
+      retries: 12
+      start_period: 30s
+    networks:
+      - dosecerta
+
+  postgres-scheduler:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ms_scheduler
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_scheduler_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d ms_scheduler"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - dosecerta
+
+  postgres-notification:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ms_notification
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_notification_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d ms_notification"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - dosecerta
+
+  postgres-linking:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ms_linking
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_linking_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d ms_linking"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - dosecerta
+
+  ms-linking:
+    build:
+      context: ./ms-linking
+    restart: unless-stopped
+    depends_on:
+      postgres-linking:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      PORT: ${MS_LINKING_PORT:-3003}
+      DATABASE_URL: ${MS_LINKING_DATABASE_URL:-postgres://postgres:postgres@postgres-linking:5432/ms_linking}
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:-admin}:${RABBITMQ_DEFAULT_PASS:-admin}@rabbitmq:5672
+      API_KEY: ${MS_LINKING_API_KEY:-dosecerta-internal-key-linking}
+      ALLOWED_IPS: ${MS_LINKING_ALLOWED_IPS:-127.0.0.1,::1,::ffff:127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+      ACTIVATION_CODE_TTL_MINUTES: ${MS_LINKING_ACTIVATION_CODE_TTL_MINUTES:-60}
+    ports:
+      - "${MS_LINKING_PORT:-3003}:${MS_LINKING_PORT:-3003}"
+    networks:
+      - dosecerta
+
+  ms-scheduler:
+    image: node:22-alpine
+    profiles: ["future"]
+    command: ["sh", "-c", "echo ms-scheduler will be implemented in etapa 2"]
+    depends_on:
+      postgres-scheduler:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - dosecerta
+
+  ms-notification:
+    image: node:22-alpine
+    profiles: ["future"]
+    command: ["sh", "-c", "echo ms-notification will be implemented in etapa 3"]
+    depends_on:
+      postgres-notification:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - dosecerta
+
+volumes:
+  rabbitmq_data:
+  postgres_scheduler_data:
+  postgres_notification_data:
+  postgres_linking_data:
+
+networks:
+  dosecerta:
