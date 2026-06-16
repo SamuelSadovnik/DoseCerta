@@ -34,6 +34,13 @@ class ProfilePage extends ConsumerWidget {
             orElse: () => null,
           )
         : null;
+    final responsibleText = accountType == AccountType.personal
+        ? dependentsAsync.when(
+            data: (_) => linkedDependent?.caregiverName ?? 'Vincular',
+            loading: () => 'Verificando...',
+            error: (_, _) => 'Atualizar',
+          )
+        : null;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -115,8 +122,7 @@ class ProfilePage extends ConsumerWidget {
                               ? Icons.link
                               : Icons.verified_user_outlined,
                           label: 'Responsável',
-                          trailingText:
-                              linkedDependent?.caregiverName ?? 'Vincular',
+                          trailingText: responsibleText,
                           onTap: () => Navigator.of(
                             context,
                           ).pushNamed(AppRoutes.linkDependent),

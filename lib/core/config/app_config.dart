@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 /// `useMockData` flips the whole app between live HTTP and offline mocks —
 /// useful for demo/dev without backend up. Build with:
 ///   flutter run --dart-define=USE_MOCK=true
-///   flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000/api
+///   flutter run --dart-define=API_BASE_URL=http://localhost:3000/api
 class AppConfig {
   const AppConfig._({required this.apiBaseUrl, required this.useMockData});
 
@@ -22,6 +22,10 @@ class AppConfig {
   final bool useMockData;
 }
 
-const String _defaultApiBaseUrl = kIsWeb
-    ? 'http://localhost:3000/api'
-    : 'http://10.0.2.2:3000/api';
+String get _defaultApiBaseUrl {
+  if (kIsWeb) return 'http://localhost:3000/api';
+  if (defaultTargetPlatform == TargetPlatform.android) {
+    return 'http://10.0.2.2:3000/api';
+  }
+  return 'http://localhost:3000/api';
+}

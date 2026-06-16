@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/app_config.dart';
@@ -9,7 +10,16 @@ import '../storage/local_cache.dart';
 final appConfigProvider = Provider<AppConfig>((ref) => AppConfig.fromEnv());
 
 final authTokenStorageProvider = Provider<AuthTokenStorage>(
-  (ref) => AuthTokenStorage.secure(),
+  (ref) {
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.macOS ||
+            defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.linux)) {
+      return AuthTokenStorage.localCache(ref.watch(localCacheProvider));
+    }
+
+    return AuthTokenStorage.secure();
+  },
 );
 
 final dioProvider = Provider<Dio>((ref) {

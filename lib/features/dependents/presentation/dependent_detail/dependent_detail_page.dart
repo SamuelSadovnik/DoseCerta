@@ -34,18 +34,13 @@ class _DependentDetailPageState extends ConsumerState<DependentDetailPage> {
     // Pull doses/history of this dependent into the shared providers so the
     // user can dive into the dependent's Home/History via the bottom nav and
     // continue filtered by them.
-    Future.microtask(() {
-      _previousSelection = ref.read(selectedDependentIdProvider);
-      ref.read(selectedDependentIdProvider.notifier).state =
-          widget.dependent.id;
-    });
+    _previousSelection = ref.read(selectedDependentIdProvider);
+    ref.read(selectedDependentIdProvider.notifier).state = widget.dependent.id;
   }
 
   @override
   void dispose() {
-    Future.microtask(() {
-      ref.read(selectedDependentIdProvider.notifier).state = _previousSelection;
-    });
+    ref.read(selectedDependentIdProvider.notifier).state = _previousSelection;
     super.dispose();
   }
 
