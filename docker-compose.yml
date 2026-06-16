@@ -27,7 +27,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
-      - "5433:5432"
+      - "5436:5432"
     volumes:
       - postgres_scheduler_data:/var/lib/postgresql/data
     healthcheck:
@@ -98,14 +98,23 @@ services:
       - dosecerta
 
   ms-scheduler:
-    image: node:22-alpine
-    profiles: ["future"]
-    command: ["sh", "-c", "echo ms-scheduler will be implemented in etapa 2"]
+    build:
+      context: ./ms-scheduler
+    restart: unless-stopped
     depends_on:
       postgres-scheduler:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    environment:
+      DATABASE_URL: ${MS_SCHEDULER_DATABASE_URL:-postgres://postgres:postgres@postgres-scheduler:5432/ms_scheduler}
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:-admin}:${RABBITMQ_DEFAULT_PASS:-admin}@rabbitmq:5672
+      MAIN_API_URL: ${MS_SCHEDULER_MAIN_API_URL:-http://host.docker.internal:3002}
+      MAIN_API_KEY: ${MS_SCHEDULER_MAIN_API_KEY:-dosecerta-internal-key-scheduler}
+      SYNC_INTERVAL_MS: ${MS_SCHEDULER_SYNC_INTERVAL_MS:-30000}
+      PUBLISH_INTERVAL_MS: ${MS_SCHEDULER_PUBLISH_INTERVAL_MS:-10000}
+      SYNC_LOOK_AHEAD_MINUTES: ${MS_SCHEDULER_SYNC_LOOK_AHEAD_MINUTES:-1440}
+      BATCH_SIZE: ${MS_SCHEDULER_BATCH_SIZE:-50}
     networks:
       - dosecerta
 

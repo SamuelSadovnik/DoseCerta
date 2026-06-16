@@ -5,11 +5,12 @@ import { Medication } from '../medications/medication.entity';
 import { Dependent } from '../dependents/dependent.entity';
 import { DosesService } from './doses.service';
 import { DosesController } from './doses.controller';
+import { InternalDosesController } from './internal-doses.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Dose, Medication, Dependent])],
   providers: [DosesService],
-  controllers: [DosesController],
+  controllers: [DosesController, InternalDosesController],
   exports: [DosesService],
 })
 export class DosesModule {}

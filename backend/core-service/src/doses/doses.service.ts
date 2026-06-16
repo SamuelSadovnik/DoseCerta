@@ -92,6 +92,24 @@ export class DosesService {
     return this.withDependentNames(doses);
   }
 
+  async pendingForScheduler(lookAheadMinutes: number): Promise<Dose[]> {
+    const now = new Date();
+    const start = new Date(now);
+    start.setDate(start.getDate() - 1);
+    const end = new Date(now);
+    end.setMinutes(end.getMinutes() + Math.max(1, lookAheadMinutes));
+
+    const doses = await this.repo.find({
+      where: {
+        status: In(['pending', 'postponed']),
+        scheduledAt: Between(start, end),
+      },
+      order: { scheduledAt: 'ASC' },
+    });
+
+    return this.withDependentNames(doses);
+  }
+
   async take(userId: string, id: string): Promise<Dose> {
     const dose = await this.findOwned(userId, id);
     if (dose.status === 'taken') {

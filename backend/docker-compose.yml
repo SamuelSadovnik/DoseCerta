@@ -59,6 +59,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
       LINKING_SERVICE_URL: ${LINKING_SERVICE_URL:-http://host.docker.internal:3003}
       LINKING_SERVICE_API_KEY: ${LINKING_SERVICE_API_KEY:-dosecerta-internal-key-linking}
+      INTERNAL_API_KEY: ${CORE_INTERNAL_API_KEY:-dosecerta-internal-key-scheduler}
     depends_on:
       postgres:
         condition: service_healthy
