@@ -59,16 +59,13 @@ export class DosesService {
     accountType: string,
     dependentId?: string,
   ): Promise<Dose[]> {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 1);
+    const { start, endInclusive } = this.currentLocalDayRange();
     if (dependentId) {
       await this.findAccessibleDependent(userId, dependentId);
     }
     const doses = await this.repo.find({
       where: await this.buildDoseWhere(userId, accountType, dependentId, {
-        scheduledAt: Between(start, end),
+        scheduledAt: Between(start, endInclusive),
       }),
       order: { scheduledAt: 'ASC' },
     });
@@ -80,8 +77,7 @@ export class DosesService {
     accountType: string,
     dependentId?: string,
   ): Promise<Dose[]> {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
+    const { start } = this.currentLocalDayRange();
     if (dependentId) {
       await this.findAccessibleDependent(userId, dependentId);
     }
@@ -110,6 +106,19 @@ export class DosesService {
     });
 
     return this.withDependentNames(doses);
+  }
+
+  async removeFuturePendingForMedication(
+    userId: string,
+    medicationId: string,
+  ): Promise<void> {
+    const now = new Date();
+    await this.repo.delete({
+      userId,
+      medicationId,
+      scheduledAt: MoreThan(now),
+      status: In(['pending', 'postponed']),
+    });
   }
 
   async take(userId: string, id: string): Promise<Dose> {
@@ -252,6 +261,41 @@ export class DosesService {
     const result = new Date(value);
     result.setMinutes(result.getMinutes() + minutes);
     return result;
+  }
+
+  private currentLocalDayRange(): { start: Date; endInclusive: Date } {
+    const parts = this.localDateParts(new Date());
+    const start = this.localDateToUtc(parts.year, parts.monthIndex, parts.day);
+    const nextDay = this.localDateToUtc(
+      parts.year,
+      parts.monthIndex,
+      parts.day + 1,
+    );
+    return { start, endInclusive: new Date(nextDay.getTime() - 1) };
+  }
+
+  private localDateParts(date: Date): {
+    year: number;
+    monthIndex: number;
+    day: number;
+  } {
+    const shifted = new Date(date.getTime() + this.timezoneOffsetMs());
+    return {
+      year: shifted.getUTCFullYear(),
+      monthIndex: shifted.getUTCMonth(),
+      day: shifted.getUTCDate(),
+    };
+  }
+
+  private localDateToUtc(year: number, monthIndex: number, day: number): Date {
+    return new Date(
+      Date.UTC(year, monthIndex, day, 0, 0, 0, 0) - this.timezoneOffsetMs(),
+    );
+  }
+
+  private timezoneOffsetMs(): number {
+    const minutes = Number(process.env.APP_TIMEZONE_OFFSET_MINUTES ?? '-180');
+    return Number.isFinite(minutes) ? minutes * 60_000 : -180 * 60_000;
   }
 
   private async withDependentNames(doses: Dose[]): Promise<Dose[]> {

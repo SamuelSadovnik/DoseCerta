@@ -50,6 +50,14 @@ export class MedicationsController {
     return this.medications.updateStock(user.id, id, dto.quantity);
   }
 
+  @Patch(':id/end')
+  endTreatment(
+    @CurrentUser() user: RequestUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.medications.endTreatment(user.id, id);
+  }
+
   @Delete(':id')
   async remove(
     @CurrentUser() user: RequestUser,

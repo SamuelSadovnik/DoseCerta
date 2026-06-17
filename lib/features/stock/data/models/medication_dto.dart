@@ -10,6 +10,7 @@ class MedicationDto {
     required this.initialQuantity,
     required this.frequency,
     required this.durationDays,
+    this.status = MedicationStatus.active,
     this.dependentId,
   });
 
@@ -26,6 +27,10 @@ class MedicationDto {
       initialQuantity: json['initialQuantity'] as int,
       frequency: json['frequency'] as String,
       durationDays: json['durationDays'] as int,
+      status: MedicationStatus.values.firstWhere(
+        (s) => s.name == json['status'],
+        orElse: () => MedicationStatus.active,
+      ),
       dependentId: json['dependentId'] as String?,
     );
   }
@@ -38,6 +43,7 @@ class MedicationDto {
   final int initialQuantity;
   final String frequency;
   final int durationDays;
+  final MedicationStatus status;
   final String? dependentId;
 
   Map<String, dynamic> toJson() => {
@@ -49,6 +55,7 @@ class MedicationDto {
     'initialQuantity': initialQuantity,
     'frequency': frequency,
     'durationDays': durationDays,
+    'status': status.name,
     'dependentId': dependentId,
   };
 
@@ -61,6 +68,7 @@ class MedicationDto {
     initialQuantity: initialQuantity,
     frequency: frequency,
     durationDays: durationDays,
+    status: status,
     dependentId: dependentId,
   );
 }

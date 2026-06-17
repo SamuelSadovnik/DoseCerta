@@ -78,8 +78,8 @@ class NewMedicationViewModel extends StateNotifier<NewMedicationState> {
       _ref.invalidate(medicationsProvider);
       if (createdForDependentId != null) {
         _ref.invalidate(medicationsByDependentProvider(createdForDependentId));
-        _ref.read(selectedDependentIdProvider.notifier).state =
-            createdForDependentId;
+        _ref.read(selectedCareContextProvider.notifier).state =
+            CareContext.dependent(createdForDependentId);
       }
       _ref.invalidate(homeDataProvider);
       _ref.invalidate(historySummariesProvider);

@@ -93,6 +93,7 @@ export class MedicationsService {
       currentQuantity: dto.initialQuantity,
       frequency: dto.frequency,
       durationDays: dto.durationDays,
+      status: 'active',
     });
     const saved = await this.repo.save(med);
     await this.doses.generateForMedication(saved);
@@ -102,6 +103,9 @@ export class MedicationsService {
   async refill(userId: string, id: string, quantity: number): Promise<Medication> {
     const med = await this.findAccessibleMedication(userId, id);
     med.currentQuantity += quantity;
+    if (med.currentQuantity > 0 && med.status !== 'ended') {
+      med.status = 'active';
+    }
     return this.repo.save(med);
   }
 
@@ -112,10 +116,22 @@ export class MedicationsService {
   ): Promise<Medication> {
     const med = await this.findAccessibleMedication(userId, id);
     med.currentQuantity = quantity;
+    if (quantity > 0 && med.status !== 'ended') {
+      med.status = 'active';
+    }
     if (quantity > med.initialQuantity) {
       med.initialQuantity = quantity;
     }
     return this.repo.save(med);
+  }
+
+  async endTreatment(userId: string, id: string): Promise<Medication> {
+    const med = await this.findAccessibleMedication(userId, id);
+    med.currentQuantity = 0;
+    med.status = 'ended';
+    const saved = await this.repo.save(med);
+    await this.doses.removeFuturePendingForMedication(med.userId, med.id);
+    return saved;
   }
 
   async remove(userId: string, id: string): Promise<void> {

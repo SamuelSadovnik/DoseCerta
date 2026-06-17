@@ -96,6 +96,16 @@ class CachingMedicationRepository implements MedicationRepository {
     return result;
   }
 
+  @override
+  Future<Medication> endTreatment(String id) async {
+    final result = await _inner.endTreatment(id);
+    await _cache.remove(_cacheKey(null));
+    if (result.dependentId != null) {
+      await _cache.remove(_cacheKey(result.dependentId));
+    }
+    return result;
+  }
+
   static Map<String, dynamic> _encode(Medication m) => {
     'id': m.id,
     'name': m.name,
@@ -105,6 +115,7 @@ class CachingMedicationRepository implements MedicationRepository {
     'initialQuantity': m.initialQuantity,
     'frequency': m.frequency,
     'durationDays': m.durationDays,
+    'status': m.status.name,
     'dependentId': m.dependentId,
   };
 
@@ -120,6 +131,10 @@ class CachingMedicationRepository implements MedicationRepository {
     initialQuantity: json['initialQuantity'] as int,
     frequency: json['frequency'] as String,
     durationDays: json['durationDays'] as int,
+    status: MedicationStatus.values.firstWhere(
+      (s) => s.name == json['status'],
+      orElse: () => MedicationStatus.active,
+    ),
     dependentId: json['dependentId'] as String?,
   );
 }

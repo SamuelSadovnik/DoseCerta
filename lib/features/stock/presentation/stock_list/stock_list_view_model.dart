@@ -8,6 +8,10 @@ class StockListViewModel extends StateNotifier<StockListState> {
   void onQueryChanged(String value) {
     state = state.copyWith(query: value);
   }
+
+  void onFilterChanged(TreatmentFilter filter) {
+    state = state.copyWith(filter: filter);
+  }
 }
 
 final stockListViewModelProvider =

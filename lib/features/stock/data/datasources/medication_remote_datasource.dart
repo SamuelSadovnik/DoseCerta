@@ -33,6 +33,8 @@ abstract class MedicationRemoteDatasource {
     required String id,
     required int quantity,
   });
+
+  Future<MedicationDto> endTreatment(String id);
 }
 
 class _HttpMedicationRemoteDatasource implements MedicationRemoteDatasource {
@@ -106,6 +108,12 @@ class _HttpMedicationRemoteDatasource implements MedicationRemoteDatasource {
       '/medications/$id/stock',
       data: {'quantity': quantity},
     );
+    return MedicationDto.fromJson(res.data!);
+  }
+
+  @override
+  Future<MedicationDto> endTreatment(String id) async {
+    final res = await _dio.patch<Map<String, dynamic>>('/medications/$id/end');
     return MedicationDto.fromJson(res.data!);
   }
 }
@@ -220,6 +228,22 @@ class _MockMedicationRemoteDatasource implements MedicationRemoteDatasource {
       initialQuantity: quantity,
       frequency: '-',
       durationDays: 0,
+    );
+  }
+
+  @override
+  Future<MedicationDto> endTreatment(String id) async {
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    return MedicationDto(
+      id: id,
+      name: 'Encerrado',
+      dosage: '-',
+      unit: MedicationUnit.tablet,
+      currentQuantity: 0,
+      initialQuantity: 1,
+      frequency: '-',
+      durationDays: 0,
+      status: MedicationStatus.ended,
     );
   }
 }

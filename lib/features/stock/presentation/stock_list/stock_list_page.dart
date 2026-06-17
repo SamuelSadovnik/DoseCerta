@@ -3,16 +3,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/enums/account_type.dart';
 import '../../../../core/providers/account_type_provider.dart';
+import '../../../../core/providers/selected_dependent_provider.dart';
 import '../../../../core/routing/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/theme_extensions.dart';
 import '../../../../shared/widgets/app_top_bar.dart';
+import '../../../../shared/widgets/dependent_context_selector.dart';
 import '../../../../shared/widgets/dosecerta_bottom_nav.dart';
 import '../../../../shared/widgets/primary_button.dart';
+import '../../../dependents/presentation/providers/dependent_providers.dart';
+import '../../../home/presentation/providers/home_providers.dart';
 import '../../domain/entities/medication.dart';
 import '../providers/stock_providers.dart';
+import 'stock_list_state.dart';
 import 'stock_list_view_model.dart';
 
 class StockListPage extends ConsumerWidget {
@@ -22,12 +27,23 @@ class StockListPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final medsAsync = ref.watch(medicationsProvider);
     final accountType = ref.watch(currentAccountTypeProvider);
+    final selectedDependentId = ref.watch(selectedCareDependentIdProvider);
+    final dependentsAsync = ref.watch(dependentsProvider);
     final state = ref.watch(stockListViewModelProvider);
     final vm = ref.read(stockListViewModelProvider.notifier);
 
-    final title = accountType == AccountType.personal
-        ? 'Meu estoque'
-        : 'Estoque';
+    final selectedDependentName = selectedDependentId == null
+        ? null
+        : dependentsAsync.maybeWhen(
+            data: (deps) {
+              for (final dependent in deps) {
+                if (dependent.id == selectedDependentId) return dependent.name;
+              }
+              return null;
+            },
+            orElse: () => null,
+          );
+    final title = _titleFor(accountType, selectedDependentName);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -55,7 +71,16 @@ class StockListPage extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: AppSpacing.sm),
+                    if (accountType == AccountType.caregiver) ...[
+                      const DependentContextSelector(),
+                      const SizedBox(height: AppSpacing.sm),
+                    ],
                     _SearchField(onChanged: vm.onQueryChanged),
+                    const SizedBox(height: AppSpacing.sm),
+                    _TreatmentFilterSelector(
+                      value: state.filter,
+                      onChanged: vm.onFilterChanged,
+                    ),
                     const SizedBox(height: AppSpacing.sm),
                     Expanded(
                       child: medsAsync.when(
@@ -66,14 +91,17 @@ class StockListPage extends ConsumerWidget {
                         data: (meds) {
                           final filtered = _filter(meds, state.query)
                               .where(
-                                (medication) => medication.currentQuantity > 0,
+                                (medication) => switch (state.filter) {
+                                  TreatmentFilter.active => !medication.isEnded,
+                                  TreatmentFilter.ended => medication.isEnded,
+                                },
                               )
                               .toList();
                           if (filtered.isEmpty) {
                             return Center(
                               child: Text(
                                 state.query.trim().isEmpty
-                                    ? 'Nenhum tratamento ativo no estoque.'
+                                    ? _emptyTextFor(state.filter)
                                     : 'Nenhum medicamento encontrado.',
                                 style: TextStyle(
                                   color: Theme.of(
@@ -103,7 +131,7 @@ class StockListPage extends ConsumerWidget {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: PrimaryButton(
-                        label: 'Cadastrar medicamento',
+                        label: 'Cadastrar tratamento',
                         trailingIcon: null,
                         leadingIcon: Icons.add,
                         size: PrimaryButtonSize.medium,
@@ -125,6 +153,21 @@ class StockListPage extends ConsumerWidget {
         onTap: (index) => _navigate(context, index),
       ),
     );
+  }
+
+  String _emptyTextFor(TreatmentFilter filter) {
+    return switch (filter) {
+      TreatmentFilter.active => 'Nenhum tratamento ativo por enquanto.',
+      TreatmentFilter.ended => 'Nenhum tratamento encerrado por enquanto.',
+    };
+  }
+
+  String _titleFor(AccountType accountType, String? dependentName) {
+    if (accountType == AccountType.personal) return 'Meus tratamentos';
+    if (dependentName != null) {
+      return 'Tratamentos de ${dependentName.split(' ').first}';
+    }
+    return 'Tratamentos';
   }
 
   List<Medication> _filter(List<Medication> list, String query) {
@@ -160,7 +203,9 @@ class StockListPage extends ConsumerWidget {
     Medication medication,
   ) async {
     final controller = TextEditingController(
-      text: medication.currentQuantity.toString(),
+      text: medication.currentQuantity == 0
+          ? ''
+          : medication.currentQuantity.toString(),
     );
 
     final result = await showModalBottomSheet<_StockAction>(
@@ -188,7 +233,9 @@ class StockListPage extends ConsumerWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                'Atualize a quantidade restante desse tratamento.',
+                medication.currentQuantity == 0
+                    ? 'Este tratamento foi encerrado e não possui próximas doses.'
+                    : 'Atualize a quantidade restante desse tratamento.',
                 style: TextStyle(
                   fontSize: 13,
                   color: Theme.of(sheetContext).colorScheme.onSurfaceVariant,
@@ -196,34 +243,61 @@ class StockListPage extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 18),
-              TextField(
-                controller: controller,
-                keyboardType: TextInputType.number,
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: 'Quantidade restante',
-                  suffixText: medication.unit.plural,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.md),
+              if (medication.currentQuantity == 0) ...[
+                Text(
+                  'Para retomar o uso, cadastre um novo tratamento com a nova frequência e duração.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(sheetContext).colorScheme.onSurfaceVariant,
+                    height: 1.35,
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              PrimaryButton(
-                label: 'Salvar estoque',
-                trailingIcon: null,
-                leadingIcon: Icons.check,
-                size: PrimaryButtonSize.medium,
-                onPressed: () =>
-                    Navigator.of(sheetContext).pop(_StockAction.save),
-              ),
-              const SizedBox(height: 8),
-              TextButton.icon(
-                onPressed: () =>
-                    Navigator.of(sheetContext).pop(_StockAction.delete),
-                icon: const Icon(Icons.archive_outlined),
-                label: const Text('Encerrar tratamento'),
-              ),
+                const SizedBox(height: 16),
+                PrimaryButton(
+                  label: 'Entendi',
+                  trailingIcon: null,
+                  leadingIcon: Icons.check,
+                  size: PrimaryButtonSize.medium,
+                  onPressed: () =>
+                      Navigator.of(sheetContext).pop(_StockAction.close),
+                ),
+              ] else ...[
+                TextField(
+                  controller: controller,
+                  keyboardType: TextInputType.number,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: 'Quantidade restante',
+                    suffixText: medication.unit.plural,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                PrimaryButton(
+                  label: 'Salvar estoque',
+                  trailingIcon: null,
+                  leadingIcon: Icons.check,
+                  size: PrimaryButtonSize.medium,
+                  onPressed: () =>
+                      Navigator.of(sheetContext).pop(_StockAction.save),
+                ),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () =>
+                      Navigator.of(sheetContext).pop(_StockAction.refill),
+                  icon: const Icon(Icons.add_circle_outline),
+                  label: const Text('Adicionar esta quantidade ao estoque'),
+                ),
+                const SizedBox(height: 4),
+                TextButton.icon(
+                  onPressed: () =>
+                      Navigator.of(sheetContext).pop(_StockAction.end),
+                  icon: const Icon(Icons.archive_outlined),
+                  label: const Text('Encerrar tratamento'),
+                ),
+              ],
             ],
           ),
         );
@@ -237,17 +311,26 @@ class StockListPage extends ConsumerWidget {
 
     final repository = ref.read(medicationRepositoryProvider);
     try {
-      if (result == _StockAction.save) {
+      if (result == _StockAction.close) {
+        return;
+      } else if (result == _StockAction.save) {
         final quantity = int.tryParse(controller.text.trim());
         if (quantity == null || quantity < 0) {
           throw const FormatException('Quantidade inválida');
         }
         await repository.updateStock(id: medication.id, quantity: quantity);
+      } else if (result == _StockAction.refill) {
+        final quantity = int.tryParse(controller.text.trim());
+        if (quantity == null || quantity <= 0) {
+          throw const FormatException('Quantidade inválida');
+        }
+        await repository.refill(id: medication.id, quantity: quantity);
       } else {
-        await repository.delete(medication.id);
+        await repository.endTreatment(medication.id);
       }
 
       ref.invalidate(medicationsProvider);
+      ref.invalidate(homeDataProvider);
       if (medication.dependentId != null) {
         ref.invalidate(medicationsByDependentProvider(medication.dependentId!));
       }
@@ -258,6 +341,8 @@ class StockListPage extends ConsumerWidget {
             content: Text(
               result == _StockAction.save
                   ? 'Estoque atualizado.'
+                  : result == _StockAction.refill
+                  ? 'Tratamento reabastecido.'
                   : 'Tratamento encerrado.',
             ),
           ),
@@ -277,7 +362,72 @@ class StockListPage extends ConsumerWidget {
   }
 }
 
-enum _StockAction { save, delete }
+enum _StockAction { save, refill, end, close }
+
+class _TreatmentFilterSelector extends StatelessWidget {
+  const _TreatmentFilterSelector({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final TreatmentFilter value;
+  final ValueChanged<TreatmentFilter> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (final filter in TreatmentFilter.values) ...[
+          Expanded(
+            child: _TreatmentFilterPill(
+              label: filter.label,
+              isSelected: value == filter,
+              onTap: () => onChanged(filter),
+            ),
+          ),
+          if (filter != TreatmentFilter.values.last)
+            const SizedBox(width: AppSpacing.sm),
+        ],
+      ],
+    );
+  }
+}
+
+class _TreatmentFilterPill extends StatelessWidget {
+  const _TreatmentFilterPill({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadius.pill),
+      child: Container(
+        height: 38,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : context.appSurfaceAlt,
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : context.appTextPrimary,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _SearchField extends StatelessWidget {
   const _SearchField({required this.onChanged});

@@ -18,4 +18,6 @@ abstract class MedicationRepository {
   Future<Medication> refill({required String id, required int quantity});
 
   Future<Medication> updateStock({required String id, required int quantity});
+
+  Future<Medication> endTreatment(String id);
 }
