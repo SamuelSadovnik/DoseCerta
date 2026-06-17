@@ -27,6 +27,8 @@ class DependentDetailPage extends ConsumerStatefulWidget {
 
 class _DependentDetailPageState extends ConsumerState<DependentDetailPage> {
   String? _previousSelection;
+  ProviderContainer? _container;
+  bool _selectionApplied = false;
 
   @override
   void initState() {
@@ -34,13 +36,35 @@ class _DependentDetailPageState extends ConsumerState<DependentDetailPage> {
     // Pull doses/history of this dependent into the shared providers so the
     // user can dive into the dependent's Home/History via the bottom nav and
     // continue filtered by them.
-    _previousSelection = ref.read(selectedDependentIdProvider);
-    ref.read(selectedDependentIdProvider.notifier).state = widget.dependent.id;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      _previousSelection = ref.read(selectedDependentIdProvider);
+      ref.read(selectedDependentIdProvider.notifier).state =
+          widget.dependent.id;
+      _selectionApplied = true;
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _container ??= ProviderScope.containerOf(context, listen: false);
   }
 
   @override
   void dispose() {
-    ref.read(selectedDependentIdProvider.notifier).state = _previousSelection;
+    final previousSelection = _previousSelection;
+    final container = _container;
+    final shouldRestore = _selectionApplied;
+
+    if (shouldRestore && container != null) {
+      Future<void>(() {
+        container.read(selectedDependentIdProvider.notifier).state =
+            previousSelection;
+      });
+    }
+
     super.dispose();
   }
 
@@ -73,26 +97,28 @@ class _DependentDetailPageState extends ConsumerState<DependentDetailPage> {
                   ),
                 ),
               ),
-              error: (e, _) => _Card(
-                child: Text('Erro ao carregar próxima dose: $e'),
-              ),
+              error: (e, _) =>
+                  _Card(child: Text('Erro ao carregar próxima dose: $e')),
               data: (data) {
-                final next = data.todayDoses.isEmpty ? null : data.todayDoses
-                    .where(
-                      (d) =>
-                          d.scheduledAt.isAfter(DateTime.now()) ||
-                          d.status.name == 'pending' ||
-                          d.status.name == 'postponed',
-                    )
-                    .map((d) => d)
-                    .firstOrNull;
+                final next = data.todayDoses.isEmpty
+                    ? null
+                    : data.todayDoses
+                          .where(
+                            (d) =>
+                                d.scheduledAt.isAfter(DateTime.now()) ||
+                                d.status.name == 'pending' ||
+                                d.status.name == 'postponed',
+                          )
+                          .map((d) => d)
+                          .firstOrNull;
                 if (next == null) {
                   return const _Card(
                     child: Text('Nenhuma dose agendada por enquanto.'),
                   );
                 }
-                final time = DateFormat('dd/MM \'às\' HH:mm')
-                    .format(next.scheduledAt);
+                final time = DateFormat(
+                  'dd/MM \'às\' HH:mm',
+                ).format(next.scheduledAt);
                 return _Card(
                   child: Row(
                     children: [
@@ -120,8 +146,7 @@ class _DependentDetailPageState extends ConsumerState<DependentDetailPage> {
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
-                                color:
-                                    Theme.of(context).colorScheme.onSurface,
+                                color: Theme.of(context).colorScheme.onSurface,
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -130,9 +155,9 @@ class _DependentDetailPageState extends ConsumerState<DependentDetailPage> {
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ],
@@ -166,9 +191,7 @@ class _DependentDetailPageState extends ConsumerState<DependentDetailPage> {
                   children: meds
                       .map(
                         (m) => Padding(
-                          padding: const EdgeInsets.only(
-                            bottom: AppSpacing.sm,
-                          ),
+                          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                           child: _MedicationTile(
                             name: m.name,
                             dosage: m.dosage,
@@ -474,11 +497,7 @@ class _MedicationTile extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
-            child: Icon(
-              Icons.medication,
-              color: AppColors.primary,
-              size: 18,
-            ),
+            child: Icon(Icons.medication, color: AppColors.primary, size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(
