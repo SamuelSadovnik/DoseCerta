@@ -6,12 +6,12 @@ import {
   OnModuleDestroy,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { and, asc, eq, lte } from "drizzle-orm";
+import { and, asc, eq, gt, lte } from "drizzle-orm";
 import { DbService } from "../db/db.service";
 import { doseSchedules, type DoseSchedule } from "../db/schema";
 import { RabbitMQService } from "../messaging/rabbitmq.service";
 import type { CoreDoseDto } from "./core-dose.dto";
-import type { DoseScheduledEvent } from "./dose-scheduled.event";
+import type { DoseReminderEvent, DoseScheduledEvent } from "./dose-scheduled.event";
 
 @Injectable()
 export class SchedulerService implements OnApplicationBootstrap, OnModuleDestroy {
@@ -98,6 +98,8 @@ export class SchedulerService implements OnApplicationBootstrap, OnModuleDestroy
     this.publishing = true;
 
     try {
+      await this.publishUpcomingReminders();
+
       const dueDoses = await this.dbService.db
         .select()
         .from(doseSchedules)
@@ -118,6 +120,71 @@ export class SchedulerService implements OnApplicationBootstrap, OnModuleDestroy
     } finally {
       this.publishing = false;
     }
+  }
+
+  private async publishUpcomingReminders() {
+    const now = new Date();
+    const remindBeforeMinutes = this.numberConfig("REMINDER_LEAD_MINUTES", 5);
+    const reminderWindowEnd = this.addMinutes(now, remindBeforeMinutes);
+
+    const upcomingDoses = await this.dbService.db
+      .select()
+      .from(doseSchedules)
+      .where(
+        and(
+          eq(doseSchedules.reminderPublished, false),
+          gt(doseSchedules.scheduledAt, now),
+          lte(doseSchedules.scheduledAt, reminderWindowEnd),
+        ),
+      )
+      .orderBy(asc(doseSchedules.scheduledAt))
+      .limit(this.numberConfig("BATCH_SIZE", 50));
+
+    for (const dose of upcomingDoses) {
+      await this.publishReminder(dose, remindBeforeMinutes);
+    }
+  }
+
+  private async publishReminder(
+    dose: DoseSchedule,
+    remindBeforeMinutes: number,
+  ) {
+    const event: DoseReminderEvent = {
+      eventType: "DoseReminder",
+      version: "1.0",
+      timestamp: new Date().toISOString(),
+      correlationId: dose.reminderCorrelationId,
+      producer: "ms-scheduler",
+      data: {
+        doseId: dose.doseId,
+        userId: dose.userId,
+        dependentId: dose.dependentId,
+        medicationName: dose.medicationName,
+        dosage: dose.dosage,
+        scheduledAt: dose.scheduledAt.toISOString(),
+        note: dose.note,
+        remindBeforeMinutes,
+      },
+    };
+
+    const accepted = this.rabbitMQService.publish("dose.reminder", event);
+    if (!accepted) return;
+
+    await this.dbService.db
+      .update(doseSchedules)
+      .set({
+        reminderPublished: true,
+        reminderPublishedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(doseSchedules.id, dose.id),
+          eq(doseSchedules.reminderPublished, false),
+        ),
+      );
+
+    this.logger.log(`DoseReminder published for dose ${dose.doseId}`);
   }
 
   private async publishDose(dose: DoseSchedule) {
@@ -187,6 +254,10 @@ export class SchedulerService implements OnApplicationBootstrap, OnModuleDestroy
   private numberConfig(key: string, fallback: number): number {
     const value = Number(this.configService.get<string>(key));
     return Number.isFinite(value) && value > 0 ? value : fallback;
+  }
+
+  private addMinutes(date: Date, minutes: number): Date {
+    return new Date(date.getTime() + minutes * 60_000);
   }
 
   private errorMessage(error: unknown): string {

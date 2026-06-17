@@ -22,6 +22,11 @@ export const doseSchedules = pgTable(
     sourceStatus: varchar("source_status", { length: 20 })
       .notNull()
       .default("pending"),
+    reminderPublished: boolean("reminder_published").notNull().default(false),
+    reminderPublishedAt: timestamp("reminder_published_at", { withTimezone: true }),
+    reminderCorrelationId: uuid("reminder_correlation_id")
+      .notNull()
+      .defaultRandom(),
     published: boolean("published").notNull().default(false),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     correlationId: uuid("correlation_id").notNull().defaultRandom(),
@@ -31,6 +36,10 @@ export const doseSchedules = pgTable(
   (table) => ({
     dueIdx: index("dose_schedules_due_idx").on(
       table.published,
+      table.scheduledAt,
+    ),
+    reminderDueIdx: index("dose_schedules_reminder_due_idx").on(
+      table.reminderPublished,
       table.scheduledAt,
     ),
     doseIdIdx: index("dose_schedules_dose_id_idx").on(table.doseId),

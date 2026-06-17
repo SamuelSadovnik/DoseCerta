@@ -131,6 +131,20 @@ export class NotificationsService {
     event: DomainEvent,
   ): Promise<NotificationDraft[]> {
     switch (event.eventType) {
+      case "DoseReminder":
+        return [
+          {
+            userId: event.data.dependentId ?? event.data.userId,
+            type: "dose_pre_reminder",
+            title: `Daqui ${event.data.remindBeforeMinutes} min: ${
+              event.data.medicationName
+            }`,
+            body: `${event.data.dosage}${
+              event.data.note ? ` - ${event.data.note}` : ""
+            }`,
+          },
+        ];
+
       case "DoseScheduled":
         return [
           {

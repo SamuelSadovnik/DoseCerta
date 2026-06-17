@@ -1,4 +1,5 @@
 export type DomainEvent =
+  | DoseReminderEvent
   | DoseScheduledEvent
   | DoseTakenEvent
   | DosePostponedEvent
@@ -24,6 +25,20 @@ export type DoseScheduledEvent = BaseEvent<
     dosage: string;
     scheduledAt: string;
     note?: string | null;
+  }
+>;
+
+export type DoseReminderEvent = BaseEvent<
+  "DoseReminder",
+  {
+    doseId: string;
+    userId: string;
+    dependentId: string | null;
+    medicationName: string;
+    dosage: string;
+    scheduledAt: string;
+    note?: string | null;
+    remindBeforeMinutes: number;
   }
 >;
 

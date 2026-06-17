@@ -8,6 +8,13 @@
       "when": 1781622000000,
       "tag": "0000_create_dose_schedules",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781712000000,
+      "tag": "0001_add_dose_reminder_tracking",
+      "breakpoints": true
     }
   ]
 }

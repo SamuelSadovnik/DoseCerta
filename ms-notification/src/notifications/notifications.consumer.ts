@@ -4,6 +4,7 @@ import type { DomainEvent } from "./events/domain-event";
 import { NotificationsService } from "./notifications.service";
 
 const supportedEvents = new Set([
+  "DoseReminder",
   "DoseScheduled",
   "DoseTaken",
   "DosePostponed",

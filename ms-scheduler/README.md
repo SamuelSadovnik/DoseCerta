@@ -1,12 +1,13 @@
 # ms-scheduler
 
-Microservico NestJS responsavel por monitorar doses pendentes e publicar eventos quando o horario agendado chega.
+Microservico NestJS responsavel por monitorar doses pendentes e publicar eventos antes e no horario agendado.
 
 ## Responsabilidade
 
 - Sincronizar doses `pending` e `postponed` da API principal por uma rota interna protegida.
 - Armazenar os agendamentos em um PostgreSQL proprio.
-- Publicar o evento `DoseScheduled` no RabbitMQ quando `scheduledAt <= now()`.
+- Publicar `DoseReminder` no RabbitMQ antes do horario da dose.
+- Publicar `DoseScheduled` no RabbitMQ quando `scheduledAt <= now()`.
 - Garantir idempotencia local marcando cada dose como publicada e reutilizando o mesmo `correlationId`.
 - Rodar como servico interno, sem API REST publica.
 
@@ -50,6 +51,7 @@ RabbitMQ Management: `http://localhost:15672` (`admin` / `admin`)
 | `SYNC_INTERVAL_MS` | Intervalo para buscar novas doses pendentes | `30000` |
 | `PUBLISH_INTERVAL_MS` | Intervalo para publicar doses vencidas | `10000` |
 | `SYNC_LOOK_AHEAD_MINUTES` | Janela futura de sincronizacao em minutos | `1440` |
+| `REMINDER_LEAD_MINUTES` | Antecedencia do lembrete antes da dose | `5` |
 | `BATCH_SIZE` | Maximo de eventos publicados por ciclo | `50` |
 
 ## Integracao com a API principal
@@ -66,7 +68,34 @@ Essa rota deve retornar doses pendentes ou adiadas dentro da janela de sincroniz
 ## Eventos publicados
 
 Exchange: `dosecerta.events`  
-Tipo: `topic`  
+Tipo: `topic`
+
+### DoseReminder
+
+Routing key: `dose.reminder`
+
+```json
+{
+  "eventType": "DoseReminder",
+  "version": "1.0",
+  "timestamp": "2025-10-24T13:55:00.000Z",
+  "correlationId": "uuid",
+  "producer": "ms-scheduler",
+  "data": {
+    "doseId": "uuid",
+    "userId": "uuid",
+    "dependentId": "uuid | null",
+    "medicationName": "Paracetamol",
+    "dosage": "500mg",
+    "scheduledAt": "2025-10-24T14:00:00.000Z",
+    "note": "Com comida",
+    "remindBeforeMinutes": 5
+  }
+}
+```
+
+### DoseScheduled
+
 Routing key: `dose.scheduled`
 
 ```json

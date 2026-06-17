@@ -47,6 +47,7 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
     );
 
     for (const routingKey of [
+      "dose.reminder",
       "dose.scheduled",
       "dose.taken",
       "dose.postponed",
