@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -19,11 +21,34 @@ import '../domain/entities/dose_schedule.dart';
 import '../domain/entities/home_data.dart';
 import 'providers/home_providers.dart';
 
-class HomePage extends ConsumerWidget {
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends ConsumerState<HomePage> {
+  Timer? _refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (!mounted) return;
+      ref.invalidate(homeDataProvider);
+      ref.invalidate(dependentsProvider);
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final homeAsync = ref.watch(homeDataProvider);
     final accountType = ref.watch(currentAccountTypeProvider);
     final user = ref.watch(currentUserProvider);
