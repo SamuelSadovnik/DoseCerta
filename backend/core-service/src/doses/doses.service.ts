@@ -10,6 +10,7 @@ import { Dose } from './dose.entity';
 import { Medication } from '../medications/medication.entity';
 import { Dependent } from '../dependents/dependent.entity';
 import { calculateDoseCount, parseFrequencyHours } from './dose-frequency';
+import { RabbitMQPublisherService } from '../messaging/rabbitmq-publisher.service';
 
 @Injectable()
 export class DosesService {
@@ -20,6 +21,7 @@ export class DosesService {
     private readonly medsRepo: Repository<Medication>,
     @InjectRepository(Dependent)
     private readonly dependentsRepo: Repository<Dependent>,
+    private readonly events: RabbitMQPublisherService,
   ) {}
 
   /**
@@ -127,7 +129,9 @@ export class DosesService {
       med.currentQuantity -= 1;
       await this.medsRepo.save(med);
     }
-    return this.repo.save(dose);
+    const saved = await this.repo.save(dose);
+    await this.publishDoseTaken(saved);
+    return saved;
   }
 
   async postpone(userId: string, id: string, minutes: number): Promise<Dose> {
@@ -157,7 +161,40 @@ export class DosesService {
     }
 
     await this.repo.save(futureDoses);
-    return this.repo.save(dose);
+    const saved = await this.repo.save(dose);
+    await this.publishDosePostponed(saved);
+    return saved;
+  }
+
+  private async publishDoseTaken(dose: Dose) {
+    const dependent = await this.findDependentForEvent(dose.dependentId);
+    this.events.publish('DoseTaken', 'dose.taken', {
+      doseId: dose.id,
+      userId: dose.userId,
+      dependentId: dose.dependentId,
+      dependentName: dependent?.name ?? null,
+      medicationName: dose.medicationName,
+      takenAt: dose.takenAt?.toISOString() ?? new Date().toISOString(),
+    });
+  }
+
+  private async publishDosePostponed(dose: Dose) {
+    const dependent = await this.findDependentForEvent(dose.dependentId);
+    this.events.publish('DosePostponed', 'dose.postponed', {
+      doseId: dose.id,
+      userId: dose.userId,
+      dependentId: dose.dependentId,
+      dependentName: dependent?.name ?? null,
+      medicationName: dose.medicationName,
+      postponedUntil: dose.scheduledAt.toISOString(),
+    });
+  }
+
+  private async findDependentForEvent(
+    dependentId: string | null,
+  ): Promise<Dependent | null> {
+    if (!dependentId) return null;
+    return this.dependentsRepo.findOne({ where: { id: dependentId } });
   }
 
   private async findOwned(userId: string, id: string): Promise<Dose> {
