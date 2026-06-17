@@ -43,4 +43,13 @@ class MedicationRepositoryImpl implements MedicationRepository {
     final dto = await _remote.refill(id: id, quantity: quantity);
     return dto.toEntity();
   }
+
+  @override
+  Future<Medication> updateStock({
+    required String id,
+    required int quantity,
+  }) async {
+    final dto = await _remote.updateStock(id: id, quantity: quantity);
+    return dto.toEntity();
+  }
 }

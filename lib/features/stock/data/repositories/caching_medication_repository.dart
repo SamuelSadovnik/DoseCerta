@@ -12,24 +12,28 @@ import '../../domain/repositories/medication_repository.dart';
 /// Pure Decorator pattern — same interface as the inner repository, no
 /// caller has to change.
 class CachingMedicationRepository implements MedicationRepository {
-  CachingMedicationRepository(this._inner, this._cache);
+  CachingMedicationRepository(
+    this._inner,
+    this._cache, {
+    String namespace = 'default',
+  }) : _namespace = namespace;
 
   final MedicationRepository _inner;
   final LocalCache _cache;
+  final String _namespace;
 
-  static const _cacheKey = 'dosecerta.cache.medications';
+  String _cacheKey(String? dependentId) =>
+      'dosecerta.$_namespace.cache.medications.${dependentId ?? 'all'}';
 
   @override
   Future<List<Medication>> getAll({String? dependentId}) async {
+    final key = _cacheKey(dependentId);
     try {
       final fresh = await _inner.getAll(dependentId: dependentId);
-      // Cache only the unfiltered global list to keep the contract simple.
-      if (dependentId == null) {
-        await _cache.writeJson(_cacheKey, fresh.map(_encode).toList());
-      }
+      await _cache.writeJson(key, fresh.map(_encode).toList());
       return fresh;
     } catch (e) {
-      final cached = _cache.readJson<List<Medication>>(_cacheKey, (raw) {
+      final cached = _cache.readJson<List<Medication>>(key, (raw) {
         return (raw as List).cast<Map<String, dynamic>>().map(_decode).toList();
       });
       if (cached != null) return cached;
@@ -56,20 +60,39 @@ class CachingMedicationRepository implements MedicationRepository {
       durationDays: durationDays,
       dependentId: dependentId,
     );
-    await _cache.remove(_cacheKey);
+    await _cache.remove(_cacheKey(null));
+    if (dependentId != null) {
+      await _cache.remove(_cacheKey(dependentId));
+    }
     return created;
   }
 
   @override
   Future<void> delete(String id) async {
     await _inner.delete(id);
-    await _cache.remove(_cacheKey);
+    await _cache.remove(_cacheKey(null));
   }
 
   @override
   Future<Medication> refill({required String id, required int quantity}) async {
     final result = await _inner.refill(id: id, quantity: quantity);
-    await _cache.remove(_cacheKey);
+    await _cache.remove(_cacheKey(null));
+    if (result.dependentId != null) {
+      await _cache.remove(_cacheKey(result.dependentId));
+    }
+    return result;
+  }
+
+  @override
+  Future<Medication> updateStock({
+    required String id,
+    required int quantity,
+  }) async {
+    final result = await _inner.updateStock(id: id, quantity: quantity);
+    await _cache.remove(_cacheKey(null));
+    if (result.dependentId != null) {
+      await _cache.remove(_cacheKey(result.dependentId));
+    }
     return result;
   }
 

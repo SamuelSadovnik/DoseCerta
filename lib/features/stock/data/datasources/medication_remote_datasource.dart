@@ -28,6 +28,11 @@ abstract class MedicationRemoteDatasource {
   Future<void> delete(String id);
 
   Future<MedicationDto> refill({required String id, required int quantity});
+
+  Future<MedicationDto> updateStock({
+    required String id,
+    required int quantity,
+  });
 }
 
 class _HttpMedicationRemoteDatasource implements MedicationRemoteDatasource {
@@ -87,6 +92,18 @@ class _HttpMedicationRemoteDatasource implements MedicationRemoteDatasource {
   }) async {
     final res = await _dio.post<Map<String, dynamic>>(
       '/medications/$id/refill',
+      data: {'quantity': quantity},
+    );
+    return MedicationDto.fromJson(res.data!);
+  }
+
+  @override
+  Future<MedicationDto> updateStock({
+    required String id,
+    required int quantity,
+  }) async {
+    final res = await _dio.patch<Map<String, dynamic>>(
+      '/medications/$id/stock',
       data: {'quantity': quantity},
     );
     return MedicationDto.fromJson(res.data!);
@@ -179,6 +196,24 @@ class _MockMedicationRemoteDatasource implements MedicationRemoteDatasource {
     return MedicationDto(
       id: id,
       name: 'Refilled',
+      dosage: '-',
+      unit: MedicationUnit.tablet,
+      currentQuantity: quantity,
+      initialQuantity: quantity,
+      frequency: '-',
+      durationDays: 0,
+    );
+  }
+
+  @override
+  Future<MedicationDto> updateStock({
+    required String id,
+    required int quantity,
+  }) async {
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    return MedicationDto(
+      id: id,
+      name: 'Atualizado',
       dosage: '-',
       unit: MedicationUnit.tablet,
       currentQuantity: quantity,

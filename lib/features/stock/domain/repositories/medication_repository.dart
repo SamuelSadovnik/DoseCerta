@@ -16,4 +16,6 @@ abstract class MedicationRepository {
   Future<void> delete(String id);
 
   Future<Medication> refill({required String id, required int quantity});
+
+  Future<Medication> updateStock({required String id, required int quantity});
 }
