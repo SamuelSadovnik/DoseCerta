@@ -4,7 +4,7 @@ Microservico NestJS responsavel por consumir eventos do RabbitMQ, registrar hist
 
 ## Responsabilidade
 
-- Consumir eventos `DoseReminder`, `DoseScheduled`, `DoseTaken`, `DosePostponed`, `DoseMissed` e `LinkEstablished`.
+- Consumir eventos `DoseReminder`, `DoseScheduled`, `AppointmentReminder`, `DoseTaken`, `DosePostponed`, `DoseMissed` e `LinkEstablished`.
 - Registrar historico de notificacoes enviadas.
 - Registrar tokens FCM dos dispositivos.
 - Enviar push por FCM ou logar em modo mock durante desenvolvimento.
@@ -77,6 +77,7 @@ DLQ: `ms-notification.dead-letter.queue`
 | --- | --- | --- |
 | `DoseReminder` | `dose.reminder` | Notifica usuario pessoal ou dependente antes do horario da dose |
 | `DoseScheduled` | `dose.scheduled` | Notifica usuario pessoal ou dependente |
+| `AppointmentReminder` | `appointment.reminder` | Notifica usuario pessoal ou dependente antes da consulta |
 | `DoseTaken` | `dose.taken` | Notifica responsavel quando ha dependente |
 | `DosePostponed` | `dose.postponed` | Notifica responsavel quando ha dependente |
 | `DoseMissed` | `dose.missed` | Notifica responsavel quando ha dependente |

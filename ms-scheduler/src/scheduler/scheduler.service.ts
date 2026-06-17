@@ -8,10 +8,19 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { and, asc, eq, gt, lte } from "drizzle-orm";
 import { DbService } from "../db/db.service";
-import { doseSchedules, type DoseSchedule } from "../db/schema";
+import {
+  appointmentSchedules,
+  doseSchedules,
+  type AppointmentSchedule,
+  type DoseSchedule,
+} from "../db/schema";
 import { RabbitMQService } from "../messaging/rabbitmq.service";
-import type { CoreDoseDto } from "./core-dose.dto";
-import type { DoseReminderEvent, DoseScheduledEvent } from "./dose-scheduled.event";
+import type { CoreAppointmentDto, CoreDoseDto } from "./core-dose.dto";
+import type {
+  AppointmentReminderEvent,
+  DoseReminderEvent,
+  DoseScheduledEvent,
+} from "./dose-scheduled.event";
 
 @Injectable()
 export class SchedulerService implements OnApplicationBootstrap, OnModuleDestroy {
@@ -54,6 +63,7 @@ export class SchedulerService implements OnApplicationBootstrap, OnModuleDestroy
 
     try {
       const doses = await this.fetchPendingDoses();
+      const appointments = await this.fetchPendingAppointments();
 
       for (const dose of doses) {
         await this.dbService.db
@@ -86,8 +96,39 @@ export class SchedulerService implements OnApplicationBootstrap, OnModuleDestroy
       if (doses.length > 0) {
         this.logger.log(`Synced ${doses.length} pending doses`);
       }
+
+      for (const appointment of appointments) {
+        await this.dbService.db
+          .insert(appointmentSchedules)
+          .values({
+            appointmentId: appointment.id,
+            userId: appointment.userId,
+            dependentId: appointment.dependentId,
+            doctorName: appointment.doctorName,
+            specialty: appointment.specialty,
+            location: appointment.location,
+            scheduledAt: new Date(appointment.scheduledAt),
+            sourceStatus: appointment.status,
+          })
+          .onConflictDoUpdate({
+            target: appointmentSchedules.appointmentId,
+            set: {
+              dependentId: appointment.dependentId,
+              doctorName: appointment.doctorName,
+              specialty: appointment.specialty,
+              location: appointment.location,
+              scheduledAt: new Date(appointment.scheduledAt),
+              sourceStatus: appointment.status,
+              updatedAt: new Date(),
+            },
+          });
+      }
+
+      if (appointments.length > 0) {
+        this.logger.log(`Synced ${appointments.length} pending appointments`);
+      }
     } catch (error) {
-      this.logger.warn(`Failed to sync doses: ${this.errorMessage(error)}`);
+      this.logger.warn(`Failed to sync schedules: ${this.errorMessage(error)}`);
     } finally {
       this.syncing = false;
     }
@@ -99,6 +140,7 @@ export class SchedulerService implements OnApplicationBootstrap, OnModuleDestroy
 
     try {
       await this.publishUpcomingReminders();
+      await this.publishUpcomingAppointmentReminders();
 
       const dueDoses = await this.dbService.db
         .select()
@@ -142,6 +184,32 @@ export class SchedulerService implements OnApplicationBootstrap, OnModuleDestroy
 
     for (const dose of upcomingDoses) {
       await this.publishReminder(dose, remindBeforeMinutes);
+    }
+  }
+
+  private async publishUpcomingAppointmentReminders() {
+    const now = new Date();
+    const remindBeforeMinutes = this.numberConfig(
+      "APPOINTMENT_REMINDER_LEAD_MINUTES",
+      60,
+    );
+    const reminderWindowEnd = this.addMinutes(now, remindBeforeMinutes);
+
+    const upcomingAppointments = await this.dbService.db
+      .select()
+      .from(appointmentSchedules)
+      .where(
+        and(
+          eq(appointmentSchedules.reminderPublished, false),
+          gt(appointmentSchedules.scheduledAt, now),
+          lte(appointmentSchedules.scheduledAt, reminderWindowEnd),
+        ),
+      )
+      .orderBy(asc(appointmentSchedules.scheduledAt))
+      .limit(this.numberConfig("BATCH_SIZE", 50));
+
+    for (const appointment of upcomingAppointments) {
+      await this.publishAppointmentReminder(appointment, remindBeforeMinutes);
     }
   }
 
@@ -225,6 +293,53 @@ export class SchedulerService implements OnApplicationBootstrap, OnModuleDestroy
     this.logger.log(`DoseScheduled published for dose ${dose.doseId}`);
   }
 
+  private async publishAppointmentReminder(
+    appointment: AppointmentSchedule,
+    remindBeforeMinutes: number,
+  ) {
+    const event: AppointmentReminderEvent = {
+      eventType: "AppointmentReminder",
+      version: "1.0",
+      timestamp: new Date().toISOString(),
+      correlationId: appointment.reminderCorrelationId,
+      producer: "ms-scheduler",
+      data: {
+        appointmentId: appointment.appointmentId,
+        userId: appointment.userId,
+        dependentId: appointment.dependentId,
+        doctorName: appointment.doctorName,
+        specialty: appointment.specialty,
+        location: appointment.location,
+        scheduledAt: appointment.scheduledAt.toISOString(),
+        remindBeforeMinutes,
+      },
+    };
+
+    const accepted = this.rabbitMQService.publish(
+      "appointment.reminder",
+      event,
+    );
+    if (!accepted) return;
+
+    await this.dbService.db
+      .update(appointmentSchedules)
+      .set({
+        reminderPublished: true,
+        reminderPublishedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(appointmentSchedules.id, appointment.id),
+          eq(appointmentSchedules.reminderPublished, false),
+        ),
+      );
+
+    this.logger.log(
+      `AppointmentReminder published for appointment ${appointment.appointmentId}`,
+    );
+  }
+
   private async fetchPendingDoses(): Promise<CoreDoseDto[]> {
     const mainApiUrl = this.configService.get<string>(
       "MAIN_API_URL",
@@ -249,6 +364,32 @@ export class SchedulerService implements OnApplicationBootstrap, OnModuleDestroy
     }
 
     return (await response.json()) as CoreDoseDto[];
+  }
+
+  private async fetchPendingAppointments(): Promise<CoreAppointmentDto[]> {
+    const mainApiUrl = this.configService.get<string>(
+      "MAIN_API_URL",
+      "http://host.docker.internal:3002",
+    );
+    const apiKey = this.configService.get<string>(
+      "MAIN_API_KEY",
+      "dosecerta-internal-key-scheduler",
+    );
+    const lookAheadMinutes = this.numberConfig("SYNC_LOOK_AHEAD_MINUTES", 1440);
+    const response = await fetch(
+      `${mainApiUrl}/internal/appointments/pending?lookAheadMinutes=${lookAheadMinutes}`,
+      {
+        headers: {
+          "x-api-key": apiKey,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(`Core API returned ${response.status}`);
+    }
+
+    return (await response.json()) as CoreAppointmentDto[];
   }
 
   private numberConfig(key: string, fallback: number): number {

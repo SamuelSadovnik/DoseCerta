@@ -1,13 +1,14 @@
 # ms-scheduler
 
-Microservico NestJS responsavel por monitorar doses pendentes e publicar eventos antes e no horario agendado.
+Microservico NestJS responsavel por monitorar doses e consultas pendentes e publicar eventos antes ou no horario agendado.
 
 ## Responsabilidade
 
-- Sincronizar doses `pending` e `postponed` da API principal por uma rota interna protegida.
+- Sincronizar doses `pending`/`postponed` e consultas `scheduled`/`confirmed`/`rescheduled` da API principal por rotas internas protegidas.
 - Armazenar os agendamentos em um PostgreSQL proprio.
 - Publicar `DoseReminder` no RabbitMQ antes do horario da dose.
 - Publicar `DoseScheduled` no RabbitMQ quando `scheduledAt <= now()`.
+- Publicar `AppointmentReminder` no RabbitMQ antes do horario da consulta.
 - Garantir idempotencia local marcando cada dose como publicada e reutilizando o mesmo `correlationId`.
 - Rodar como servico interno, sem API REST publica.
 
@@ -52,6 +53,7 @@ RabbitMQ Management: `http://localhost:15672` (`admin` / `admin`)
 | `PUBLISH_INTERVAL_MS` | Intervalo para publicar doses vencidas | `10000` |
 | `SYNC_LOOK_AHEAD_MINUTES` | Janela futura de sincronizacao em minutos | `1440` |
 | `REMINDER_LEAD_MINUTES` | Antecedencia do lembrete antes da dose | `5` |
+| `APPOINTMENT_REMINDER_LEAD_MINUTES` | Antecedencia do lembrete antes da consulta | `60` |
 | `BATCH_SIZE` | Maximo de eventos publicados por ciclo | `50` |
 
 ## Integracao com a API principal
@@ -63,7 +65,14 @@ GET /internal/doses/pending?lookAheadMinutes=1440
 x-api-key: dosecerta-internal-key-scheduler
 ```
 
-Essa rota deve retornar doses pendentes ou adiadas dentro da janela de sincronizacao. O scheduler salva uma copia minima dos dados no proprio banco e nao acessa diretamente o banco da API principal.
+E tambem:
+
+```http
+GET /internal/appointments/pending?lookAheadMinutes=1440
+x-api-key: dosecerta-internal-key-scheduler
+```
+
+Essas rotas devem retornar itens dentro da janela de sincronizacao. O scheduler salva uma copia minima dos dados no proprio banco e nao acessa diretamente o banco da API principal.
 
 ## Eventos publicados
 
@@ -113,6 +122,30 @@ Routing key: `dose.scheduled`
     "dosage": "500mg",
     "scheduledAt": "2025-10-24T14:00:00.000Z",
     "note": "Com comida"
+  }
+}
+```
+
+### AppointmentReminder
+
+Routing key: `appointment.reminder`
+
+```json
+{
+  "eventType": "AppointmentReminder",
+  "version": "1.0",
+  "timestamp": "2025-10-24T13:00:00.000Z",
+  "correlationId": "uuid",
+  "producer": "ms-scheduler",
+  "data": {
+    "appointmentId": "uuid",
+    "userId": "uuid",
+    "dependentId": "uuid | null",
+    "doctorName": "Ana Luiza",
+    "specialty": "Clinico",
+    "location": "Consultorio",
+    "scheduledAt": "2025-10-24T14:00:00.000Z",
+    "remindBeforeMinutes": 60
   }
 }
 ```

@@ -6,6 +6,7 @@ import { NotificationsService } from "./notifications.service";
 const supportedEvents = new Set([
   "DoseReminder",
   "DoseScheduled",
+  "AppointmentReminder",
   "DoseTaken",
   "DosePostponed",
   "DoseMissed",

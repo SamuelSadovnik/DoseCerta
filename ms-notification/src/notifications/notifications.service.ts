@@ -157,6 +157,18 @@ export class NotificationsService {
           },
         ];
 
+      case "AppointmentReminder":
+        return [
+          {
+            userId: event.data.dependentId ?? event.data.userId,
+            type: "appointment_reminder",
+            title: `Consulta em ${event.data.remindBeforeMinutes} min`,
+            body: `${event.data.doctorName}${
+              event.data.specialty ? ` - ${event.data.specialty}` : ""
+            }${event.data.location ? ` em ${event.data.location}` : ""}`,
+          },
+        ];
+
       case "DoseTaken":
         return this.caregiverNotification(event.data.dependentId, {
           type: "dose_taken",

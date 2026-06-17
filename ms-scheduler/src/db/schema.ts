@@ -47,3 +47,44 @@ export const doseSchedules = pgTable(
 );
 
 export type DoseSchedule = typeof doseSchedules.$inferSelect;
+
+export const appointmentSchedules = pgTable(
+  "appointment_schedules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    appointmentId: uuid("appointment_id").notNull().unique(),
+    userId: uuid("user_id").notNull(),
+    dependentId: uuid("dependent_id"),
+    doctorName: text("doctor_name").notNull(),
+    specialty: text("specialty"),
+    location: text("location"),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
+    sourceStatus: varchar("source_status", { length: 20 })
+      .notNull()
+      .default("scheduled"),
+    reminderPublished: boolean("reminder_published").notNull().default(false),
+    reminderPublishedAt: timestamp("reminder_published_at", {
+      withTimezone: true,
+    }),
+    reminderCorrelationId: uuid("reminder_correlation_id")
+      .notNull()
+      .defaultRandom(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    reminderDueIdx: index("appointment_schedules_reminder_due_idx").on(
+      table.reminderPublished,
+      table.scheduledAt,
+    ),
+    appointmentIdIdx: index("appointment_schedules_appointment_id_idx").on(
+      table.appointmentId,
+    ),
+  }),
+);
+
+export type AppointmentSchedule = typeof appointmentSchedules.$inferSelect;

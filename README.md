@@ -25,11 +25,11 @@ Servico REST responsavel por gerar codigos de ativacao, ativar vinculos entre re
 
 ### ms-scheduler
 
-Servico interno sem API REST publica. Sincroniza doses pendentes da API principal por rota interna protegida e publica `DoseScheduled` no RabbitMQ quando o horario da dose chega.
+Servico interno sem API REST publica. Sincroniza doses e consultas pendentes da API principal por rotas internas protegidas e publica lembretes/eventos no RabbitMQ.
 
 - Banco proprio: `postgres-scheduler`
-- RabbitMQ routing key: `dose.scheduled`
-- Rota interna consumida: `GET /internal/doses/pending`
+- RabbitMQ routing keys: `dose.reminder`, `dose.scheduled`, `appointment.reminder`
+- Rotas internas consumidas: `GET /internal/doses/pending`, `GET /internal/appointments/pending`
 
 ### ms-notification
 

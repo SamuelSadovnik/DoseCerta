@@ -32,3 +32,21 @@ export type DoseReminderEvent = {
     remindBeforeMinutes: number;
   };
 };
+
+export type AppointmentReminderEvent = {
+  eventType: "AppointmentReminder";
+  version: "1.0";
+  timestamp: string;
+  correlationId: string;
+  producer: "ms-scheduler";
+  data: {
+    appointmentId: string;
+    userId: string;
+    dependentId: string | null;
+    doctorName: string;
+    specialty: string | null;
+    location: string | null;
+    scheduledAt: string;
+    remindBeforeMinutes: number;
+  };
+};
