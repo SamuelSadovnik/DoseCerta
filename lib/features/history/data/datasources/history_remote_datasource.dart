@@ -89,6 +89,10 @@ class _HttpHistoryRemoteDatasource implements HistoryRemoteDatasource {
           .whereType<Map<String, dynamic>>()
           .map(_missedDoseFromJson)
           .toList(),
+      treatments: (json['treatments'] as List? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(_treatmentHistoryFromJson)
+          .toList(),
       dependentId: json['dependentId'] as String?,
       dependentName: json['dependentName'] as String?,
       dependentAvatarUrl: json['dependentAvatarUrl'] as String?,
@@ -111,6 +115,22 @@ class _HttpHistoryRemoteDatasource implements HistoryRemoteDatasource {
       dosage: json['dosage'] as String? ?? '',
       scheduledAt: DateTime.parse(json['scheduledAt'] as String).toLocal(),
       dependentName: json['dependentName'] as String?,
+    );
+  }
+
+  TreatmentHistory _treatmentHistoryFromJson(Map<String, dynamic> json) {
+    return TreatmentHistory(
+      medicationId: json['medicationId'] as String? ?? '',
+      medicationName: json['medicationName'] as String? ?? 'Medicamento',
+      dosage: json['dosage'] as String? ?? '',
+      dosesTaken: json['dosesTaken'] as int? ?? 0,
+      dosesExpected: json['dosesExpected'] as int? ?? 0,
+      dosesMissed: json['dosesMissed'] as int? ?? 0,
+      adherencePercent: json['adherencePercent'] as int? ?? 0,
+      lastDoseAt: json['lastDoseAt'] == null
+          ? null
+          : DateTime.parse(json['lastDoseAt'] as String).toLocal(),
+      lastStatus: json['lastStatus'] as String?,
     );
   }
 
@@ -259,6 +279,30 @@ class _MockHistoryRemoteDatasource implements HistoryRemoteDatasource {
       dosesMissed: missed,
       days: days,
       missedDoses: missedDoses,
+      treatments: [
+        TreatmentHistory(
+          medicationId: 'mock-paracetamol',
+          medicationName: 'Paracetamol',
+          dosage: '500mg',
+          dosesTaken: (takenBase * 0.55).round(),
+          dosesExpected: (takenBase * 0.55).round() + (missed > 2 ? 1 : 0),
+          dosesMissed: missed > 2 ? 1 : 0,
+          adherencePercent: missed > 2 ? 92 : 100,
+          lastDoseAt: DateTime(month.year, month.month, today.day, 8),
+          lastStatus: 'taken',
+        ),
+        TreatmentHistory(
+          medicationId: 'mock-ibuprofeno',
+          medicationName: 'Ibuprofeno',
+          dosage: '400mg',
+          dosesTaken: (takenBase * 0.45).round(),
+          dosesExpected: (takenBase * 0.45).round() + missed,
+          dosesMissed: missed,
+          adherencePercent: missed == 0 ? 100 : 86,
+          lastDoseAt: DateTime(month.year, month.month, 11, 22),
+          lastStatus: missed == 0 ? 'taken' : 'missed',
+        ),
+      ],
       dependentId: dependentId,
       dependentName: dependentName,
     );

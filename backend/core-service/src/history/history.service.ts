@@ -24,9 +24,22 @@ interface HistorySummary {
   dosesMissed: number;
   days: HistoryDay[];
   missedDoses: MissedDose[];
+  treatments: TreatmentHistory[];
   dependentId?: string;
   dependentName?: string;
   dependentAvatarUrl?: string;
+}
+
+interface TreatmentHistory {
+  medicationId: string;
+  medicationName: string;
+  dosage: string;
+  dosesTaken: number;
+  dosesExpected: number;
+  dosesMissed: number;
+  adherencePercent: number;
+  lastDoseAt?: Date;
+  lastStatus?: Dose['status'];
 }
 
 interface HistoryDayDose {
@@ -38,6 +51,13 @@ interface HistoryDayDose {
   takenAt: Date | null;
   dependentId: string | null;
   dependentName?: string | null;
+}
+
+interface MonthRange {
+  start: Date;
+  endInclusive: Date;
+  year: number;
+  monthIndex: number;
 }
 
 @Injectable()
@@ -71,7 +91,8 @@ export class HistoryService {
 
     return [...grouped.entries()].map(([groupId, groupDoses]) =>
       this.buildSummary({
-        monthStart: range.start,
+        year: range.year,
+        monthIndex: range.monthIndex,
         groupId,
         doses: groupDoses,
         dependentNames,
@@ -114,12 +135,13 @@ export class HistoryService {
   }
 
   private buildSummary(params: {
-    monthStart: Date;
+    year: number;
+    monthIndex: number;
     groupId: string;
     doses: Dose[];
     dependentNames: Map<string, string>;
   }): HistorySummary {
-    const { monthStart, groupId, doses, dependentNames } = params;
+    const { year, monthIndex, groupId, doses, dependentNames } = params;
     const now = new Date();
     const dueDoses = doses.filter(
       (dose) => dose.scheduledAt <= now || dose.status === 'taken',
@@ -142,8 +164,9 @@ export class HistoryService {
       dosesTaken: dueDoses.filter((dose) => dose.status === 'taken').length,
       dosesExpected: dueDoses.length,
       dosesMissed: missedDoses.length,
-      days: this.buildDays(monthStart, doses),
+      days: this.buildDays(year, monthIndex, doses),
       missedDoses,
+      treatments: this.buildTreatmentHistory(dueDoses),
       ...(dependentId
         ? {
             dependentId,
@@ -153,14 +176,61 @@ export class HistoryService {
     };
   }
 
-  private buildDays(monthStart: Date, doses: Dose[]): HistoryDay[] {
-    const year = monthStart.getUTCFullYear();
-    const monthIndex = monthStart.getUTCMonth();
+  private buildTreatmentHistory(doses: Dose[]): TreatmentHistory[] {
+    const grouped = new Map<string, Dose[]>();
+    for (const dose of doses) {
+      const group = grouped.get(dose.medicationId) ?? [];
+      group.push(dose);
+      grouped.set(dose.medicationId, group);
+    }
+
+    return [...grouped.values()]
+      .map((group) => {
+        const sorted = [...group].sort(
+          (a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime(),
+        );
+        const latest = sorted[sorted.length - 1];
+        const dosesTaken = sorted.filter(
+          (dose) => dose.status === 'taken',
+        ).length;
+        const dosesExpected = sorted.length;
+        const dosesMissed = sorted.filter(
+          (dose) => dose.status !== 'taken',
+        ).length;
+        const adherencePercent =
+          dosesExpected === 0 ? 0 : Math.round((dosesTaken / dosesExpected) * 100);
+
+        return {
+          medicationId: latest.medicationId,
+          medicationName: latest.medicationName,
+          dosage: latest.dosage,
+          dosesTaken,
+          dosesExpected,
+          dosesMissed,
+          adherencePercent,
+          lastDoseAt: latest.scheduledAt,
+          lastStatus: latest.status,
+        };
+      })
+      .sort((a, b) => {
+        const byMissed = b.dosesMissed - a.dosesMissed;
+        if (byMissed !== 0) return byMissed;
+        return a.medicationName.localeCompare(b.medicationName);
+      });
+  }
+
+  private buildDays(
+    year: number,
+    monthIndex: number,
+    doses: Dose[],
+  ): HistoryDay[] {
     const daysInMonth = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
 
     const statusesByDay = new Map<number, Dose['status'][]>();
     for (const dose of doses) {
-      const day = dose.scheduledAt.getUTCDate();
+      const parts = this.localDateParts(dose.scheduledAt);
+      if (parts.year !== year || parts.monthIndex !== monthIndex) continue;
+      const day = parts.day;
       const statuses = statusesByDay.get(day) ?? [];
       statuses.push(dose.status);
       statusesByDay.set(day, statuses);
@@ -171,18 +241,21 @@ export class HistoryService {
       const statuses = statusesByDay.get(day) ?? [];
       days.push({
         date: this.formatDateUtc(year, monthIndex, day),
-        status: this.dayStatus(statuses, new Date(Date.UTC(year, monthIndex, day))),
+        status: this.dayStatus(statuses, this.localDayNumber(year, monthIndex, day)),
       });
     }
     return days;
   }
 
-  private dayStatus(statuses: Dose['status'][], day: Date): DayStatus {
+  private dayStatus(statuses: Dose['status'][], dayNumber: number): DayStatus {
     if (statuses.length === 0) return 'none';
-    const now = new Date();
-    const isPastDay =
-      day <
-      new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const nowParts = this.localDateParts(new Date());
+    const todayNumber = this.localDayNumber(
+      nowParts.year,
+      nowParts.monthIndex,
+      nowParts.day,
+    );
+    const isPastDay = dayNumber < todayNumber;
     if (statuses.some((status) => status === 'missed')) return 'someMissed';
     if (isPastDay && statuses.some((status) => status !== 'taken')) {
       return 'someMissed';
@@ -268,31 +341,61 @@ export class HistoryService {
     ];
   }
 
-  private monthRange(month?: string): { start: Date; endInclusive: Date } {
+  private monthRange(month?: string): MonthRange {
     const match = month?.match(/^(\d{4})-(\d{2})$/);
     const now = new Date();
-    const year = match ? Number(match[1]) : now.getUTCFullYear();
-    const monthNumber = match ? Number(match[2]) : now.getUTCMonth() + 1;
+    const nowParts = this.localDateParts(now);
+    const year = match ? Number(match[1]) : nowParts.year;
+    const monthNumber = match ? Number(match[2]) : nowParts.monthIndex + 1;
     const monthIndex = Math.min(Math.max(monthNumber, 1), 12) - 1;
 
-    const start = new Date(Date.UTC(year, monthIndex, 1, 0, 0, 0, 0));
-    const nextMonth = new Date(Date.UTC(year, monthIndex + 1, 1, 0, 0, 0, 0));
+    const start = this.localDateToUtc(year, monthIndex, 1);
+    const nextMonth = this.localDateToUtc(year, monthIndex + 1, 1);
     const endInclusive = new Date(nextMonth.getTime() - 1);
-    return { start, endInclusive };
+    return { start, endInclusive, year, monthIndex };
   }
 
   private dayRange(date: string): { start: Date; endInclusive: Date } {
     const match = date?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     const now = new Date();
-    const year = match ? Number(match[1]) : now.getUTCFullYear();
-    const month = match ? Number(match[2]) : now.getUTCMonth() + 1;
-    const day = match ? Number(match[3]) : now.getUTCDate();
-    const start = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
-    const nextDay = new Date(Date.UTC(year, month - 1, day + 1, 0, 0, 0, 0));
+    const nowParts = this.localDateParts(now);
+    const year = match ? Number(match[1]) : nowParts.year;
+    const month = match ? Number(match[2]) : nowParts.monthIndex + 1;
+    const day = match ? Number(match[3]) : nowParts.day;
+    const start = this.localDateToUtc(year, month - 1, day);
+    const nextDay = this.localDateToUtc(year, month - 1, day + 1);
     return { start, endInclusive: new Date(nextDay.getTime() - 1) };
   }
 
   private formatDateUtc(year: number, monthIndex: number, day: number): string {
     return new Date(Date.UTC(year, monthIndex, day)).toISOString();
+  }
+
+  private localDateParts(date: Date): {
+    year: number;
+    monthIndex: number;
+    day: number;
+  } {
+    const shifted = new Date(date.getTime() + this.timezoneOffsetMs());
+    return {
+      year: shifted.getUTCFullYear(),
+      monthIndex: shifted.getUTCMonth(),
+      day: shifted.getUTCDate(),
+    };
+  }
+
+  private localDateToUtc(year: number, monthIndex: number, day: number): Date {
+    return new Date(
+      Date.UTC(year, monthIndex, day, 0, 0, 0, 0) - this.timezoneOffsetMs(),
+    );
+  }
+
+  private localDayNumber(year: number, monthIndex: number, day: number): number {
+    return year * 10000 + (monthIndex + 1) * 100 + day;
+  }
+
+  private timezoneOffsetMs(): number {
+    const minutes = Number(process.env.APP_TIMEZONE_OFFSET_MINUTES ?? '-180');
+    return Number.isFinite(minutes) ? minutes * 60_000 : -180 * 60_000;
   }
 }
