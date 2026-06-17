@@ -8,13 +8,20 @@ import '../datasources/auth_remote_datasource.dart';
 import '../models/auth_response_dto.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
-  AuthRepositoryImpl(this._remote, this._tokens, this._cache);
+  AuthRepositoryImpl(
+    this._remote,
+    this._tokens,
+    this._cache, {
+    this.namespace = 'default',
+  });
 
   final AuthRemoteDatasource _remote;
   final AuthTokenStorage _tokens;
   final LocalCache _cache;
+  final String namespace;
 
-  static const currentUserCacheKey = 'dosecerta.current_user';
+  static String currentUserCacheKey(String namespace) =>
+      'dosecerta.$namespace.current_user';
 
   @override
   Future<AuthResult> login({
@@ -72,12 +79,12 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<void> logout() async {
     await _tokens.clear();
-    await _cache.remove(currentUserCacheKey);
+    await _cache.remove(currentUserCacheKey(namespace));
   }
 
   Future<AuthResult> _persistAndMap(AuthResponseDto dto) async {
     await _tokens.write(dto.accessToken);
-    await _cache.writeJson(currentUserCacheKey, {
+    await _cache.writeJson(currentUserCacheKey(namespace), {
       'id': dto.user.id,
       'name': dto.user.name,
       'email': dto.user.email,
@@ -88,8 +95,11 @@ class AuthRepositoryImpl implements AuthRepository {
     return AuthResult(accessToken: dto.accessToken, user: dto.user.toEntity());
   }
 
-  static User? readCurrentUser(LocalCache cache) {
-    return cache.readJson<User>(currentUserCacheKey, (raw) {
+  static User? readCurrentUser(
+    LocalCache cache, {
+    String namespace = 'default',
+  }) {
+    return cache.readJson<User>(currentUserCacheKey(namespace), (raw) {
       final json = raw as Map<String, dynamic>;
       return User(
         id: json['id'] as String,

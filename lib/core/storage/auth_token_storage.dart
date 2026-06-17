@@ -10,7 +10,8 @@ abstract class AuthTokenStorage {
   factory AuthTokenStorage.secure() = _SecureAuthTokenStorage;
 
   /// Desktop/dev fallback backed by SharedPreferences through [LocalCache].
-  factory AuthTokenStorage.localCache(LocalCache cache) = _LocalAuthTokenStorage;
+  factory AuthTokenStorage.localCache(LocalCache cache, {String namespace}) =
+      _LocalAuthTokenStorage;
 
   /// Test/in-memory factory.
   factory AuthTokenStorage.inMemory() = _InMemoryAuthTokenStorage;
@@ -39,10 +40,11 @@ class _SecureAuthTokenStorage extends AuthTokenStorage {
 }
 
 class _LocalAuthTokenStorage extends AuthTokenStorage {
-  _LocalAuthTokenStorage(this._cache);
+  _LocalAuthTokenStorage(this._cache, {String namespace = 'default'})
+    : _key = 'dosecerta.$namespace.access_token';
 
   final LocalCache _cache;
-  static const _key = 'dosecerta.access_token';
+  final String _key;
 
   @override
   Future<String?> read() async =>

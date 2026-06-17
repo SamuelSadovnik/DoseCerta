@@ -15,13 +15,19 @@ final authRemoteDatasourceProvider = Provider<AuthRemoteDatasource>((ref) {
 });
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
+  final config = ref.watch(appConfigProvider);
   return AuthRepositoryImpl(
     ref.watch(authRemoteDatasourceProvider),
     ref.watch(authTokenStorageProvider),
     ref.watch(localCacheProvider),
+    namespace: config.appInstance,
   );
 });
 
 final currentUserProvider = Provider<User?>((ref) {
-  return AuthRepositoryImpl.readCurrentUser(ref.watch(localCacheProvider));
+  final config = ref.watch(appConfigProvider);
+  return AuthRepositoryImpl.readCurrentUser(
+    ref.watch(localCacheProvider),
+    namespace: config.appInstance,
+  );
 });

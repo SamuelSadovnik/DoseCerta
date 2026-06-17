@@ -9,18 +9,20 @@ import '../storage/local_cache.dart';
 
 final appConfigProvider = Provider<AppConfig>((ref) => AppConfig.fromEnv());
 
-final authTokenStorageProvider = Provider<AuthTokenStorage>(
-  (ref) {
-    if (!kIsWeb &&
-        (defaultTargetPlatform == TargetPlatform.macOS ||
-            defaultTargetPlatform == TargetPlatform.windows ||
-            defaultTargetPlatform == TargetPlatform.linux)) {
-      return AuthTokenStorage.localCache(ref.watch(localCacheProvider));
-    }
+final authTokenStorageProvider = Provider<AuthTokenStorage>((ref) {
+  final config = ref.watch(appConfigProvider);
+  if (!kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.macOS ||
+          defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.linux)) {
+    return AuthTokenStorage.localCache(
+      ref.watch(localCacheProvider),
+      namespace: config.appInstance,
+    );
+  }
 
-    return AuthTokenStorage.secure();
-  },
-);
+  return AuthTokenStorage.secure();
+});
 
 final dioProvider = Provider<Dio>((ref) {
   final config = ref.watch(appConfigProvider);
