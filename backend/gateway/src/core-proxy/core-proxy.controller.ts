@@ -77,6 +77,15 @@ export class CoreProxyController {
     });
   }
 
+  @Patch('medications/:id/end')
+  endMedicationTreatment(@Req() req: Request, @Param('id') id: string) {
+    return this.proxy.forward({
+      method: 'PATCH',
+      path: `medications/${id}/end`,
+      user: req.user as ForwardUser,
+    });
+  }
+
   @Delete('medications/:id')
   deleteMedication(@Req() req: Request, @Param('id') id: string) {
     return this.proxy.forward({
@@ -126,6 +135,18 @@ export class CoreProxyController {
     });
   }
 
+  @Post('dependents/:id/code')
+  regenerateDependentActivationCode(
+    @Req() req: Request,
+    @Param('id') id: string,
+  ) {
+    return this.proxy.forward({
+      method: 'POST',
+      path: `dependents/${id}/code`,
+      user: req.user as ForwardUser,
+    });
+  }
+
   @Delete('dependents/:id')
   deleteDependent(@Req() req: Request, @Param('id') id: string) {
     return this.proxy.forward({
@@ -164,6 +185,24 @@ export class CoreProxyController {
     return this.proxy.forward({
       method: 'POST',
       path: `appointments/${id}/confirm`,
+      user: req.user as ForwardUser,
+    });
+  }
+
+  @Post('appointments/:id/complete')
+  completeAppointment(@Req() req: Request, @Param('id') id: string) {
+    return this.proxy.forward({
+      method: 'POST',
+      path: `appointments/${id}/complete`,
+      user: req.user as ForwardUser,
+    });
+  }
+
+  @Post('appointments/:id/cancel')
+  cancelAppointment(@Req() req: Request, @Param('id') id: string) {
+    return this.proxy.forward({
+      method: 'POST',
+      path: `appointments/${id}/cancel`,
       user: req.user as ForwardUser,
     });
   }
