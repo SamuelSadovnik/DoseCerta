@@ -28,7 +28,51 @@ class AppointmentAlertViewModel extends StateNotifier<AppointmentAlertState> {
         isLoading: false,
         errorMessage: describeApiError(
           e,
-          fallback: 'Não foi possível finalizar a consulta.',
+          fallback: 'Não foi possível confirmar a consulta.',
+        ),
+      );
+    }
+  }
+
+  Future<void> complete() async {
+    if (_appointmentId == null || state.isLoading) return;
+    state = state.copyWith(isLoading: true);
+    try {
+      await _ref.read(appointmentRepositoryProvider).complete(_appointmentId);
+      _ref.invalidate(appointmentsProvider);
+      state = state.copyWith(
+        actionTaken: AlertAction.completed,
+        isLoading: false,
+        clearError: true,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: describeApiError(
+          e,
+          fallback: 'Não foi possível concluir a consulta.',
+        ),
+      );
+    }
+  }
+
+  Future<void> cancel() async {
+    if (_appointmentId == null || state.isLoading) return;
+    state = state.copyWith(isLoading: true);
+    try {
+      await _ref.read(appointmentRepositoryProvider).cancel(_appointmentId);
+      _ref.invalidate(appointmentsProvider);
+      state = state.copyWith(
+        actionTaken: AlertAction.cancelled,
+        isLoading: false,
+        clearError: true,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: describeApiError(
+          e,
+          fallback: 'Não foi possível cancelar a consulta.',
         ),
       );
     }

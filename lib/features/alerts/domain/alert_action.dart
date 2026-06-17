@@ -1,1 +1,8 @@
-enum AlertAction { taken, postponed, confirmed, rescheduled }
+enum AlertAction {
+  taken,
+  postponed,
+  confirmed,
+  completed,
+  cancelled,
+  rescheduled,
+}

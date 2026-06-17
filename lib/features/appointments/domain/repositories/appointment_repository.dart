@@ -13,6 +13,10 @@ abstract class AppointmentRepository {
 
   Future<Appointment> confirm(String id);
 
+  Future<Appointment> complete(String id);
+
+  Future<Appointment> cancel(String id);
+
   Future<Appointment> reschedule({
     required String id,
     required String doctorName,

@@ -24,6 +24,10 @@ abstract class AppointmentRemoteDatasource {
 
   Future<AppointmentDto> confirm(String id);
 
+  Future<AppointmentDto> complete(String id);
+
+  Future<AppointmentDto> cancel(String id);
+
   Future<AppointmentDto> reschedule({
     required String id,
     required String doctorName,
@@ -81,6 +85,22 @@ class _HttpAppointmentRemoteDatasource implements AppointmentRemoteDatasource {
   Future<AppointmentDto> confirm(String id) async {
     final res = await _dio.post<Map<String, dynamic>>(
       '/appointments/$id/confirm',
+    );
+    return AppointmentDto.fromJson(res.data!);
+  }
+
+  @override
+  Future<AppointmentDto> complete(String id) async {
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/appointments/$id/complete',
+    );
+    return AppointmentDto.fromJson(res.data!);
+  }
+
+  @override
+  Future<AppointmentDto> cancel(String id) async {
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/appointments/$id/cancel',
     );
     return AppointmentDto.fromJson(res.data!);
   }
@@ -187,6 +207,32 @@ class _MockAppointmentRemoteDatasource implements AppointmentRemoteDatasource {
       scheduledAt: DateTime.now(),
       location: '-',
       status: AppointmentStatus.confirmed,
+    );
+  }
+
+  @override
+  Future<AppointmentDto> complete(String id) async {
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    return AppointmentDto(
+      id: id,
+      doctorName: '-',
+      specialty: '-',
+      scheduledAt: DateTime.now(),
+      location: '-',
+      status: AppointmentStatus.completed,
+    );
+  }
+
+  @override
+  Future<AppointmentDto> cancel(String id) async {
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    return AppointmentDto(
+      id: id,
+      doctorName: '-',
+      specialty: '-',
+      scheduledAt: DateTime.now(),
+      location: '-',
+      status: AppointmentStatus.cancelled,
     );
   }
 

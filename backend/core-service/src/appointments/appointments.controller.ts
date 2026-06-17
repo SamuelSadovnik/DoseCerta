@@ -37,6 +37,22 @@ export class AppointmentsController {
     return this.appointments.confirm(user.id, id);
   }
 
+  @Post(':id/complete')
+  complete(
+    @CurrentUser() user: RequestUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.appointments.complete(user.id, id);
+  }
+
+  @Post(':id/cancel')
+  cancel(
+    @CurrentUser() user: RequestUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.appointments.cancel(user.id, id);
+  }
+
   @Post(':id/reschedule')
   reschedule(
     @CurrentUser() user: RequestUser,

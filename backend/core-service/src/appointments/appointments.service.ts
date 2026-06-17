@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { Between, In, Repository } from 'typeorm';
 import { Appointment } from './appointment.entity';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { Dependent } from '../dependents/dependent.entity';
@@ -34,6 +34,20 @@ export class AppointmentsService {
     return this.repo.find({ order: { scheduledAt: 'ASC' } });
   }
 
+  pendingForScheduler(lookAheadMinutes: number): Promise<Appointment[]> {
+    const now = new Date();
+    const end = new Date(now);
+    end.setMinutes(end.getMinutes() + Math.max(1, lookAheadMinutes));
+
+    return this.repo.find({
+      where: {
+        status: In(['scheduled', 'confirmed', 'rescheduled']),
+        scheduledAt: Between(now, end),
+      },
+      order: { scheduledAt: 'ASC' },
+    });
+  }
+
   async create(userId: string, dto: CreateAppointmentDto): Promise<Appointment> {
     const dependent = dto.dependentId
       ? await this.findAccessibleDependent(userId, dto.dependentId)
@@ -53,7 +67,19 @@ export class AppointmentsService {
 
   async confirm(userId: string, id: string): Promise<Appointment> {
     const appt = await this.findAccessibleAppointment(userId, id);
+    appt.status = 'confirmed';
+    return this.repo.save(appt);
+  }
+
+  async complete(userId: string, id: string): Promise<Appointment> {
+    const appt = await this.findAccessibleAppointment(userId, id);
     appt.status = 'done';
+    return this.repo.save(appt);
+  }
+
+  async cancel(userId: string, id: string): Promise<Appointment> {
+    const appt = await this.findAccessibleAppointment(userId, id);
+    appt.status = 'cancelled';
     return this.repo.save(appt);
   }
 

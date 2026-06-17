@@ -6,12 +6,14 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/enums/account_type.dart';
 import '../../../../core/providers/account_type_provider.dart';
+import '../../../../core/providers/selected_dependent_provider.dart';
 import '../../../../core/routing/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/theme_extensions.dart';
 import '../../../../shared/widgets/app_top_bar.dart';
+import '../../../../shared/widgets/dependent_context_selector.dart';
 import '../../../../shared/widgets/dosecerta_bottom_nav.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../../../dependents/presentation/providers/dependent_providers.dart';
@@ -50,9 +52,20 @@ class _AppointmentsListPageState extends ConsumerState<AppointmentsListPage> {
   Widget build(BuildContext context) {
     final async = ref.watch(appointmentsProvider);
     final accountType = ref.watch(currentAccountTypeProvider);
-    final title = accountType == AccountType.personal
-        ? 'Minhas consultas'
-        : 'Consultas';
+    final selectedDependentId = ref.watch(selectedCareDependentIdProvider);
+    final dependentsAsync = ref.watch(dependentsProvider);
+    final selectedDependentName = selectedDependentId == null
+        ? null
+        : dependentsAsync.maybeWhen(
+            data: (deps) {
+              for (final dependent in deps) {
+                if (dependent.id == selectedDependentId) return dependent.name;
+              }
+              return null;
+            },
+            orElse: () => null,
+          );
+    final title = _titleFor(accountType, selectedDependentName);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -80,6 +93,10 @@ class _AppointmentsListPageState extends ConsumerState<AppointmentsListPage> {
                       ),
                     ),
                     const SizedBox(height: AppSpacing.sm),
+                    if (accountType == AccountType.caregiver) ...[
+                      const DependentContextSelector(),
+                      const SizedBox(height: AppSpacing.sm),
+                    ],
                     _SearchField(onChanged: (v) => setState(() => _query = v)),
                     const SizedBox(height: AppSpacing.sm),
                     Expanded(
@@ -110,7 +127,8 @@ class _AppointmentsListPageState extends ConsumerState<AppointmentsListPage> {
                             itemBuilder: (_, i) => _AppointmentCard(
                               appointment: filtered[i],
                               showDependent:
-                                  accountType == AccountType.caregiver,
+                                  accountType == AccountType.caregiver &&
+                                  selectedDependentId == null,
                               onTap: () => Navigator.of(context).pushNamed(
                                 AppRoutes.alertAppointment,
                                 arguments: filtered[i],
@@ -145,6 +163,14 @@ class _AppointmentsListPageState extends ConsumerState<AppointmentsListPage> {
         onTap: (index) => _navigate(context, index),
       ),
     );
+  }
+
+  String _titleFor(AccountType accountType, String? dependentName) {
+    if (accountType == AccountType.personal) return 'Minhas consultas';
+    if (dependentName != null) {
+      return 'Consultas de ${dependentName.split(' ').first}';
+    }
+    return 'Consultas';
   }
 
   List<Appointment> _filter(List<Appointment> list) {
