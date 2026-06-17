@@ -14,6 +14,7 @@ import '../../../../shared/widgets/primary_button.dart';
 import '../../../home/presentation/providers/home_providers.dart';
 import '../../../stock/presentation/providers/stock_providers.dart';
 import '../../domain/entities/dependent.dart';
+import '../providers/dependent_providers.dart';
 
 class DependentDetailPage extends ConsumerStatefulWidget {
   const DependentDetailPage({super.key, required this.dependent});
@@ -26,22 +27,25 @@ class DependentDetailPage extends ConsumerStatefulWidget {
 }
 
 class _DependentDetailPageState extends ConsumerState<DependentDetailPage> {
-  String? _previousSelection;
+  CareContext? _previousSelection;
   ProviderContainer? _container;
   bool _selectionApplied = false;
+  late Dependent _dependent;
+  bool _isRegeneratingCode = false;
 
   @override
   void initState() {
     super.initState();
+    _dependent = widget.dependent;
     // Pull doses/history of this dependent into the shared providers so the
     // user can dive into the dependent's Home/History via the bottom nav and
     // continue filtered by them.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
-      _previousSelection = ref.read(selectedDependentIdProvider);
-      ref.read(selectedDependentIdProvider.notifier).state =
-          widget.dependent.id;
+      _previousSelection = ref.read(selectedCareContextProvider);
+      ref.read(selectedCareContextProvider.notifier).state =
+          CareContext.dependent(_dependent.id);
       _selectionApplied = true;
     });
   }
@@ -60,8 +64,8 @@ class _DependentDetailPageState extends ConsumerState<DependentDetailPage> {
 
     if (shouldRestore && container != null) {
       Future<void>(() {
-        container.read(selectedDependentIdProvider.notifier).state =
-            previousSelection;
+        container.read(selectedCareContextProvider.notifier).state =
+            previousSelection ?? const CareContext.allDependents();
       });
     }
 
@@ -70,13 +74,13 @@ class _DependentDetailPageState extends ConsumerState<DependentDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final dep = widget.dependent;
+    final dep = _dependent;
     final medsAsync = ref.watch(medicationsByDependentProvider(dep.id));
     final homeAsync = ref.watch(homeDataProvider);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: const FormAppBar(title: 'Dependente'),
+      appBar: const FormAppBar(title: 'Pessoa cuidada'),
       body: SafeArea(
         top: false,
         child: ListView(
@@ -84,7 +88,11 @@ class _DependentDetailPageState extends ConsumerState<DependentDetailPage> {
           children: [
             _Header(dependent: dep),
             const SizedBox(height: AppSpacing.lg),
-            _LinkSection(dependent: dep),
+            _LinkSection(
+              dependent: dep,
+              isRegeneratingCode: _isRegeneratingCode,
+              onRegenerateCode: _regenerateActivationCode,
+            ),
             const SizedBox(height: AppSpacing.lg),
             _SectionTitle(title: 'Próxima dose'),
             const SizedBox(height: AppSpacing.sm),
@@ -169,7 +177,7 @@ class _DependentDetailPageState extends ConsumerState<DependentDetailPage> {
               },
             ),
             const SizedBox(height: AppSpacing.lg),
-            _SectionTitle(title: 'Medicamentos'),
+            _SectionTitle(title: 'Tratamentos ativos'),
             const SizedBox(height: AppSpacing.sm),
             medsAsync.when(
               loading: () => const _Card(
@@ -218,12 +226,49 @@ class _DependentDetailPageState extends ConsumerState<DependentDetailPage> {
       ),
     );
   }
+
+  Future<void> _regenerateActivationCode() async {
+    if (_isRegeneratingCode) return;
+
+    setState(() => _isRegeneratingCode = true);
+    try {
+      final updated = await ref
+          .read(dependentRepositoryProvider)
+          .regenerateActivationCode(_dependent.id);
+      if (!mounted) return;
+
+      setState(() => _dependent = updated);
+      ref.invalidate(dependentsProvider);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Novo código de vínculo gerado'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível gerar um novo código.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isRegeneratingCode = false);
+      }
+    }
+  }
 }
 
 class _LinkSection extends StatelessWidget {
-  const _LinkSection({required this.dependent});
+  const _LinkSection({
+    required this.dependent,
+    required this.isRegeneratingCode,
+    required this.onRegenerateCode,
+  });
 
   final Dependent dependent;
+  final bool isRegeneratingCode;
+  final VoidCallback onRegenerateCode;
 
   @override
   Widget build(BuildContext context) {
@@ -252,7 +297,7 @@ class _LinkSection extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'O dependente já tem o próprio app. As doses agora são marcadas por ele.',
+                    'Essa pessoa já tem o próprio app. As doses agora podem ser marcadas por ela.',
                     style: TextStyle(
                       fontSize: 12,
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -293,7 +338,7 @@ class _LinkSection extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'O dependente pode instalar o app, criar uma conta e digitar este código em "Vincular a um responsável" para passar a marcar as doses por conta própria.',
+            'Essa pessoa pode instalar o app, criar uma conta e digitar este código em "Vincular a um responsável" para passar a marcar as doses por conta própria.',
             style: TextStyle(
               fontSize: 12,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -349,6 +394,34 @@ class _LinkSection extends StatelessWidget {
                 ),
               ],
             ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: isRegeneratingCode ? null : onRegenerateCode,
+              icon: isRegeneratingCode
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh),
+              label: Text(
+                isRegeneratingCode
+                    ? 'Gerando novo código...'
+                    : 'Gerar novo código',
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Use essa opção quando o código anterior expirar ou a pessoa não conseguir vincular a conta.',
+            style: TextStyle(
+              fontSize: 11,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              height: 1.35,
+            ),
+          ),
         ],
       ),
     );

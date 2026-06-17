@@ -170,8 +170,8 @@ class ProfilePage extends ConsumerWidget {
                   _LogoutButton(
                     onTap: () async {
                       await ref.read(authRepositoryProvider).logout();
-                      ref.read(selectedDependentIdProvider.notifier).state =
-                          null;
+                      ref.read(selectedCareContextProvider.notifier).state =
+                          const CareContext.allDependents();
                       ref.read(currentAccountTypeProvider.notifier).state =
                           AccountType.personal;
                       ref.invalidate(currentUserProvider);

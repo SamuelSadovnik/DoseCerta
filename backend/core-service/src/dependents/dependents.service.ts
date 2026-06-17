@@ -91,6 +91,28 @@ export class DependentsService {
     return this.repo.save(dep);
   }
 
+  async regenerateActivationCode(
+    user: RequestUser,
+    id: string,
+  ): Promise<Dependent> {
+    const dep = await this.repo.findOne({ where: { id, userId: user.id } });
+    if (!dep) {
+      throw new NotFoundException('Dependente não encontrado');
+    }
+    if (dep.linkedUserId) {
+      throw new ConflictException('Esta pessoa já está vinculada');
+    }
+
+    dep.activationCode = await this.generateLinkingCode({
+      userId: user.id,
+      caregiverName: user.email,
+      dependentId: dep.id,
+      dependentName: dep.name,
+    });
+
+    return this.repo.save(dep);
+  }
+
   async remove(userId: string, id: string): Promise<void> {
     const dep = await this.repo.findOne({ where: { id, userId } });
     if (!dep) throw new NotFoundException('Dependente não encontrado');

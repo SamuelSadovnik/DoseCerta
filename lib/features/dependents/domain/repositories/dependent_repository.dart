@@ -11,6 +11,8 @@ abstract class DependentRepository {
 
   Future<Dependent> link({required String code});
 
+  Future<Dependent> regenerateActivationCode(String id);
+
   Future<void> unlink();
 
   Future<void> delete(String id);

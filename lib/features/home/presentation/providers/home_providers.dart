@@ -24,7 +24,7 @@ final homeRepositoryProvider = Provider<HomeRepository>((ref) {
 final homeDataProvider = FutureProvider.autoDispose<HomeData>((ref) {
   ref.cacheFor(PageCachePolicy.home);
   final accountType = ref.watch(currentAccountTypeProvider);
-  final selectedDependentId = ref.watch(selectedDependentIdProvider);
+  final selectedDependentId = ref.watch(selectedCareDependentIdProvider);
   final dependentId = accountType == AccountType.caregiver
       ? selectedDependentId
       : null;

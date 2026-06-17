@@ -22,6 +22,8 @@ abstract class DependentRemoteDatasource {
 
   Future<DependentDto> link({required String code});
 
+  Future<DependentDto> regenerateActivationCode(String id);
+
   Future<void> unlink();
 
   Future<void> delete(String id);
@@ -62,6 +64,12 @@ class _HttpDependentRemoteDatasource implements DependentRemoteDatasource {
       '/dependents/link',
       data: {'code': code},
     );
+    return DependentDto.fromJson(res.data!);
+  }
+
+  @override
+  Future<DependentDto> regenerateActivationCode(String id) async {
+    final res = await _dio.post<Map<String, dynamic>>('/dependents/$id/code');
     return DependentDto.fromJson(res.data!);
   }
 
@@ -141,6 +149,23 @@ class _MockDependentRemoteDatasource implements DependentRemoteDatasource {
       activationCode: code,
       linkedUserId: 'mock-user',
       linkedAt: DateTime.now(),
+    );
+  }
+
+  @override
+  Future<DependentDto> regenerateActivationCode(String id) async {
+    await Future<void>.delayed(Duration(milliseconds: 400));
+    return DependentDto(
+      id: id,
+      name: 'Pessoa cuidada',
+      relationship: RelationshipType.other,
+      status: DependentStatus.pendingConfirmation,
+      statusMessage: 'Aguardando confirmação',
+      activationCode: DateTime.now().millisecondsSinceEpoch
+          .toRadixString(36)
+          .toUpperCase()
+          .padLeft(8, '0')
+          .substring(0, 8),
     );
   }
 

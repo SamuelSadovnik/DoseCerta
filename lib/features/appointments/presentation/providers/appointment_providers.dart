@@ -41,7 +41,7 @@ final currentAppointmentDependentIdProvider =
     FutureProvider.autoDispose<String?>((ref) async {
       final accountType = ref.watch(currentAccountTypeProvider);
       if (accountType == AccountType.caregiver) {
-        return ref.watch(selectedDependentIdProvider);
+        return ref.watch(selectedCareDependentIdProvider);
       }
 
       final dependents = await ref.watch(dependentsProvider.future);

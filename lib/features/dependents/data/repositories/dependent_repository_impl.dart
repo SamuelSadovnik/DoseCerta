@@ -34,6 +34,12 @@ class DependentRepositoryImpl implements DependentRepository {
   }
 
   @override
+  Future<Dependent> regenerateActivationCode(String id) async {
+    final dto = await _remote.regenerateActivationCode(id);
+    return dto.toEntity();
+  }
+
+  @override
   Future<void> unlink() => _remote.unlink();
 
   @override

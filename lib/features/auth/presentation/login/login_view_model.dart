@@ -40,7 +40,8 @@ class LoginViewModel extends StateNotifier<LoginState> {
       );
       _ref.read(currentAccountTypeProvider.notifier).state =
           result.user.accountType;
-      _ref.read(selectedDependentIdProvider.notifier).state = null;
+      _ref.read(selectedCareContextProvider.notifier).state =
+          const CareContext.allDependents();
       _ref.invalidate(currentUserProvider);
       _ref.invalidate(dependentsProvider);
       state = state.copyWith(isLoading: false, loginSuccess: true);

@@ -8,8 +8,8 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/theme_extensions.dart';
 import '../../features/dependents/presentation/providers/dependent_providers.dart';
 
-/// Horizontal pill row for the caregiver to switch between viewing their own
-/// data ("Eu") and each dependent. Hidden for personal accounts and when the
+/// Horizontal pill row for the caregiver to switch between the consolidated
+/// view and each cared person. Hidden for personal accounts and when the
 /// dependents list is empty.
 class DependentContextSelector extends ConsumerWidget {
   const DependentContextSelector({super.key});
@@ -26,7 +26,7 @@ class DependentContextSelector extends ConsumerWidget {
       error: (_, _) => const SizedBox.shrink(),
       data: (deps) {
         if (deps.isEmpty) return const SizedBox.shrink();
-        final selected = ref.watch(selectedDependentIdProvider);
+        final selected = ref.watch(selectedCareContextProvider);
         return SizedBox(
           height: 40,
           child: ListView(
@@ -34,19 +34,21 @@ class DependentContextSelector extends ConsumerWidget {
             children: [
               _ContextPill(
                 label: 'Todos',
-                isSelected: selected == null,
-                onTap: () => ref
-                    .read(selectedDependentIdProvider.notifier)
-                    .state = null,
+                isSelected: selected.type == CareContextType.allDependents,
+                onTap: () =>
+                    ref.read(selectedCareContextProvider.notifier).state =
+                        const CareContext.allDependents(),
               ),
               for (final d in deps) ...[
                 const SizedBox(width: 8),
                 _ContextPill(
                   label: d.name.split(' ').first,
-                  isSelected: selected == d.id,
-                  onTap: () => ref
-                      .read(selectedDependentIdProvider.notifier)
-                      .state = d.id,
+                  isSelected:
+                      selected.type == CareContextType.dependent &&
+                      selected.dependentId == d.id,
+                  onTap: () =>
+                      ref.read(selectedCareContextProvider.notifier).state =
+                          CareContext.dependent(d.id),
                 ),
               ],
             ],

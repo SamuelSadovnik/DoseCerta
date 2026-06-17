@@ -36,7 +36,7 @@ final historySummariesProvider =
       ref.cacheFor(PageCachePolicy.mainTabs);
       final month = ref.watch(selectedMonthProvider);
       final accountType = ref.watch(currentAccountTypeProvider);
-      final selectedDependentId = ref.watch(selectedDependentIdProvider);
+      final selectedDependentId = ref.watch(selectedCareDependentIdProvider);
       final dependentId = accountType == AccountType.caregiver
           ? selectedDependentId
           : null;
@@ -55,7 +55,7 @@ final historyDayDetailsProvider =
       if (date == null) return Future.value(const []);
 
       final accountType = ref.watch(currentAccountTypeProvider);
-      final selectedDependentId = ref.watch(selectedDependentIdProvider);
+      final selectedDependentId = ref.watch(selectedCareDependentIdProvider);
       final dependentId = accountType == AccountType.caregiver
           ? selectedDependentId
           : null;

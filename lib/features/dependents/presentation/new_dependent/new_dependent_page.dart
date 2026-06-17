@@ -42,7 +42,7 @@ class NewDependentPage extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: const FormAppBar(title: 'Novo Dependente'),
+      appBar: const FormAppBar(title: 'Nova pessoa cuidada'),
       body: SafeArea(
         top: false,
         child: SingleChildScrollView(
@@ -50,7 +50,7 @@ class NewDependentPage extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const HeroCard(title: 'Dependente'),
+              const HeroCard(title: 'Pessoa cuidada'),
               const SizedBox(height: AppSpacing.lg),
               LabeledTextField(
                 label: 'Nome Completo',
@@ -107,7 +107,7 @@ class NewDependentPage extends ConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.xl),
               PrimaryButton(
-                label: 'Salvar Dependente',
+                label: 'Salvar pessoa',
                 isLoading: state.isLoading,
                 trailingIcon: Icons.check_circle,
                 onPressed: vm.submit,

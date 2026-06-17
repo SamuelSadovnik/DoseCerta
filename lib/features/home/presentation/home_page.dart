@@ -52,7 +52,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final homeAsync = ref.watch(homeDataProvider);
     final accountType = ref.watch(currentAccountTypeProvider);
     final user = ref.watch(currentUserProvider);
-    final selectedDependentId = ref.watch(selectedDependentIdProvider);
+    final selectedDependentId = ref.watch(selectedCareDependentIdProvider);
     final dependentsAsync = ref.watch(dependentsProvider);
     final selectedDependentName = selectedDependentId == null
         ? null

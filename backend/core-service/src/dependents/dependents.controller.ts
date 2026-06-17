@@ -37,6 +37,14 @@ export class DependentsController {
     return { ok: true };
   }
 
+  @Post(':id/code')
+  regenerateActivationCode(
+    @CurrentUser() user: RequestUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.dependents.regenerateActivationCode(user, id);
+  }
+
   @Delete(':id')
   async remove(
     @CurrentUser() user: RequestUser,
