@@ -7,6 +7,7 @@ import '../../../../core/providers/app_providers.dart';
 import '../../../../core/providers/selected_dependent_provider.dart';
 import '../../data/datasources/history_remote_datasource.dart';
 import '../../data/repositories/history_repository_impl.dart';
+import '../../domain/entities/day_dose_detail.dart';
 import '../../domain/entities/history_summary.dart';
 import '../../domain/repositories/history_repository.dart';
 
@@ -28,6 +29,8 @@ final selectedMonthProvider = StateProvider<DateTime>((ref) {
   return DateTime(now.year, now.month);
 });
 
+final selectedHistoryDayProvider = StateProvider<DateTime?>((ref) => null);
+
 final historySummariesProvider =
     FutureProvider.autoDispose<List<HistorySummary>>((ref) {
       ref.cacheFor(PageCachePolicy.mainTabs);
@@ -44,4 +47,20 @@ final historySummariesProvider =
             accountType: accountType,
             dependentId: dependentId,
           );
+    });
+
+final historyDayDetailsProvider =
+    FutureProvider.autoDispose<List<DayDoseDetail>>((ref) {
+      final date = ref.watch(selectedHistoryDayProvider);
+      if (date == null) return Future.value(const []);
+
+      final accountType = ref.watch(currentAccountTypeProvider);
+      final selectedDependentId = ref.watch(selectedDependentIdProvider);
+      final dependentId = accountType == AccountType.caregiver
+          ? selectedDependentId
+          : null;
+
+      return ref
+          .watch(historyRepositoryProvider)
+          .getDayDetails(date: date, dependentId: dependentId);
     });

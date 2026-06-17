@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../../../../core/enums/account_type.dart';
+import '../../domain/entities/day_dose_detail.dart';
 import '../../domain/entities/history_summary.dart';
 
 /// Remote datasource for history summaries.
@@ -14,6 +15,11 @@ abstract class HistoryRemoteDatasource {
   Future<List<HistorySummary>> getSummaries({
     required DateTime month,
     required AccountType accountType,
+    String? dependentId,
+  });
+
+  Future<List<DayDoseDetail>> getDayDetails({
+    required DateTime date,
     String? dependentId,
   });
 }
@@ -41,9 +47,33 @@ class _HttpHistoryRemoteDatasource implements HistoryRemoteDatasource {
         .toList();
   }
 
+  @override
+  Future<List<DayDoseDetail>> getDayDetails({
+    required DateTime date,
+    String? dependentId,
+  }) async {
+    final query = <String, dynamic>{'date': _formatDate(date)};
+    if (dependentId != null) {
+      query['dependentId'] = dependentId;
+    }
+    final res = await _dio.get<List<dynamic>>(
+      '/history/day',
+      queryParameters: query,
+    );
+    return (res.data ?? const [])
+        .map((e) => _dayDoseDetailFromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   String _formatMonth(DateTime month) {
     final mm = month.month.toString().padLeft(2, '0');
     return '${month.year}-$mm';
+  }
+
+  String _formatDate(DateTime date) {
+    final mm = date.month.toString().padLeft(2, '0');
+    final dd = date.day.toString().padLeft(2, '0');
+    return '${date.year}-$mm-$dd';
   }
 
   HistorySummary _historySummaryFromJson(Map<String, dynamic> json) {
@@ -83,6 +113,24 @@ class _HttpHistoryRemoteDatasource implements HistoryRemoteDatasource {
       dependentName: json['dependentName'] as String?,
     );
   }
+
+  DayDoseDetail _dayDoseDetailFromJson(Map<String, dynamic> json) {
+    return DayDoseDetail(
+      id: json['id'] as String,
+      medicationName: json['medicationName'] as String? ?? 'Medicamento',
+      dosage: json['dosage'] as String? ?? '',
+      scheduledAt: DateTime.parse(json['scheduledAt'] as String).toLocal(),
+      status: DayDoseStatus.values.firstWhere(
+        (status) => status.name == json['status'],
+        orElse: () => DayDoseStatus.pending,
+      ),
+      takenAt: json['takenAt'] == null
+          ? null
+          : DateTime.parse(json['takenAt'] as String).toLocal(),
+      dependentId: json['dependentId'] as String?,
+      dependentName: json['dependentName'] as String?,
+    );
+  }
 }
 
 class _MockHistoryRemoteDatasource implements HistoryRemoteDatasource {
@@ -119,6 +167,38 @@ class _MockHistoryRemoteDatasource implements HistoryRemoteDatasource {
       ];
     }
     return [_buildSummary(month, takenBase: 124, missed: 2)];
+  }
+
+  @override
+  Future<List<DayDoseDetail>> getDayDetails({
+    required DateTime date,
+    String? dependentId,
+  }) async {
+    await Future<void>.delayed(Duration(milliseconds: 450));
+    if (date.day % 7 == 0) return const [];
+    return [
+      DayDoseDetail(
+        id: 'dose-${date.day}-1',
+        medicationName: 'Paracetamol',
+        dosage: '500mg',
+        scheduledAt: DateTime(date.year, date.month, date.day, 8),
+        status: DayDoseStatus.taken,
+        takenAt: DateTime(date.year, date.month, date.day, 8, 5),
+        dependentId: dependentId ?? 'dep-1',
+        dependentName: dependentId == null ? 'João Silva' : null,
+      ),
+      DayDoseDetail(
+        id: 'dose-${date.day}-2',
+        medicationName: 'Ibuprofeno',
+        dosage: '400mg',
+        scheduledAt: DateTime(date.year, date.month, date.day, 14),
+        status: date.isAfter(DateTime.now())
+            ? DayDoseStatus.pending
+            : DayDoseStatus.missed,
+        dependentId: dependentId ?? 'dep-2',
+        dependentName: dependentId == null ? 'Maria Souza' : null,
+      ),
+    ];
   }
 
   HistorySummary _buildSummary(

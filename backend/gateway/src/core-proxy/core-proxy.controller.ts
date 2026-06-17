@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -57,6 +58,20 @@ export class CoreProxyController {
     return this.proxy.forward({
       method: 'POST',
       path: `medications/${id}/refill`,
+      user: req.user as ForwardUser,
+      body,
+    });
+  }
+
+  @Patch('medications/:id/stock')
+  updateMedicationStock(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
+    return this.proxy.forward({
+      method: 'PATCH',
+      path: `medications/${id}/stock`,
       user: req.user as ForwardUser,
       body,
     });
@@ -227,6 +242,23 @@ export class CoreProxyController {
   }
 
   // ----- History -----
+  @Get('history/day')
+  historyDay(
+    @Req() req: Request,
+    @Query('date') date?: string,
+    @Query('dependentId') dependentId?: string,
+  ) {
+    return this.proxy.forward({
+      method: 'GET',
+      path: 'history/day',
+      user: req.user as ForwardUser,
+      query: {
+        ...(date ? { date } : {}),
+        ...(dependentId ? { dependentId } : {}),
+      },
+    });
+  }
+
   @Get('history')
   history(
     @Req() req: Request,

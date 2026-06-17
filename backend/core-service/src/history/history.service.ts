@@ -29,6 +29,17 @@ interface HistorySummary {
   dependentAvatarUrl?: string;
 }
 
+interface HistoryDayDose {
+  id: string;
+  medicationName: string;
+  dosage: string;
+  scheduledAt: Date;
+  status: Dose['status'];
+  takenAt: Date | null;
+  dependentId: string | null;
+  dependentName?: string | null;
+}
+
 @Injectable()
 export class HistoryService {
   constructor(
@@ -66,6 +77,40 @@ export class HistoryService {
         dependentNames,
       }),
     );
+  }
+
+  async day(
+    userId: string,
+    accountType: string,
+    date: string,
+    dependentId?: string,
+  ): Promise<HistoryDayDose[]> {
+    const range = this.dayRange(date);
+    if (dependentId) {
+      await this.findAccessibleDependent(userId, dependentId);
+    }
+
+    const doses = await this.doses.find({
+      where: await this.buildDoseWhere(userId, accountType, dependentId, {
+        scheduledAt: Between(range.start, range.endInclusive),
+      }),
+      order: { scheduledAt: 'ASC' },
+    });
+
+    const dependentNames = await this.loadDependentNames(userId, doses);
+
+    return doses.map((dose) => ({
+      id: dose.id,
+      medicationName: dose.medicationName,
+      dosage: dose.dosage,
+      scheduledAt: dose.scheduledAt,
+      status: dose.status,
+      takenAt: dose.takenAt,
+      dependentId: dose.dependentId,
+      dependentName: dose.dependentId
+        ? dependentNames.get(dose.dependentId) ?? null
+        : null,
+    }));
   }
 
   private buildSummary(params: {
@@ -234,6 +279,17 @@ export class HistoryService {
     const nextMonth = new Date(Date.UTC(year, monthIndex + 1, 1, 0, 0, 0, 0));
     const endInclusive = new Date(nextMonth.getTime() - 1);
     return { start, endInclusive };
+  }
+
+  private dayRange(date: string): { start: Date; endInclusive: Date } {
+    const match = date?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const now = new Date();
+    const year = match ? Number(match[1]) : now.getUTCFullYear();
+    const month = match ? Number(match[2]) : now.getUTCMonth() + 1;
+    const day = match ? Number(match[3]) : now.getUTCDate();
+    const start = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+    const nextDay = new Date(Date.UTC(year, month - 1, day + 1, 0, 0, 0, 0));
+    return { start, endInclusive: new Date(nextDay.getTime() - 1) };
   }
 
   private formatDateUtc(year: number, monthIndex: number, day: number): string {
