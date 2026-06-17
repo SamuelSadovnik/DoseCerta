@@ -64,11 +64,17 @@ class StockListPage extends ConsumerWidget {
                         error: (e, _) =>
                             Center(child: Text('Erro ao carregar: $e')),
                         data: (meds) {
-                          final filtered = _filter(meds, state.query);
+                          final filtered = _filter(meds, state.query)
+                              .where(
+                                (medication) => medication.currentQuantity > 0,
+                              )
+                              .toList();
                           if (filtered.isEmpty) {
                             return Center(
                               child: Text(
-                                'Nenhum medicamento encontrado.',
+                                state.query.trim().isEmpty
+                                    ? 'Nenhum tratamento ativo no estoque.'
+                                    : 'Nenhum medicamento encontrado.',
                                 style: TextStyle(
                                   color: Theme.of(
                                     context,
@@ -85,8 +91,11 @@ class StockListPage extends ConsumerWidget {
                             itemCount: filtered.length,
                             separatorBuilder: (_, _) =>
                                 const SizedBox(height: AppSpacing.sm + 4),
-                            itemBuilder: (_, i) =>
-                                _InventoryCard(medication: filtered[i]),
+                            itemBuilder: (_, i) => _InventoryCard(
+                              medication: filtered[i],
+                              onTap: () =>
+                                  _showStockActions(context, ref, filtered[i]),
+                            ),
                           );
                         },
                       ),
@@ -144,7 +153,131 @@ class StockListPage extends ConsumerWidget {
         Navigator.of(context).pushReplacementNamed(AppRoutes.profile);
     }
   }
+
+  Future<void> _showStockActions(
+    BuildContext context,
+    WidgetRef ref,
+    Medication medication,
+  ) async {
+    final controller = TextEditingController(
+      text: medication.currentQuantity.toString(),
+    );
+
+    final result = await showModalBottomSheet<_StockAction>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (sheetContext) {
+        final bottomInset = MediaQuery.of(sheetContext).viewInsets.bottom;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(24, 20, 24, bottomInset + 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                medication.name,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: Theme.of(sheetContext).colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Atualize a quantidade restante desse tratamento.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(sheetContext).colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 18),
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.number,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: 'Quantidade restante',
+                  suffixText: medication.unit.plural,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              PrimaryButton(
+                label: 'Salvar estoque',
+                trailingIcon: null,
+                leadingIcon: Icons.check,
+                size: PrimaryButtonSize.medium,
+                onPressed: () =>
+                    Navigator.of(sheetContext).pop(_StockAction.save),
+              ),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: () =>
+                    Navigator.of(sheetContext).pop(_StockAction.delete),
+                icon: const Icon(Icons.archive_outlined),
+                label: const Text('Encerrar tratamento'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (!context.mounted || result == null) {
+      controller.dispose();
+      return;
+    }
+
+    final repository = ref.read(medicationRepositoryProvider);
+    try {
+      if (result == _StockAction.save) {
+        final quantity = int.tryParse(controller.text.trim());
+        if (quantity == null || quantity < 0) {
+          throw const FormatException('Quantidade inválida');
+        }
+        await repository.updateStock(id: medication.id, quantity: quantity);
+      } else {
+        await repository.delete(medication.id);
+      }
+
+      ref.invalidate(medicationsProvider);
+      if (medication.dependentId != null) {
+        ref.invalidate(medicationsByDependentProvider(medication.dependentId!));
+      }
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              result == _StockAction.save
+                  ? 'Estoque atualizado.'
+                  : 'Tratamento encerrado.',
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Não foi possível atualizar o estoque.'),
+          ),
+        );
+      }
+    } finally {
+      controller.dispose();
+    }
+  }
 }
+
+enum _StockAction { save, delete }
 
 class _SearchField extends StatelessWidget {
   const _SearchField({required this.onChanged});
@@ -199,9 +332,10 @@ class _SearchField extends StatelessWidget {
 }
 
 class _InventoryCard extends StatelessWidget {
-  const _InventoryCard({required this.medication});
+  const _InventoryCard({required this.medication, required this.onTap});
 
   final Medication medication;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -214,105 +348,115 @@ class _InventoryCard extends StatelessWidget {
       MedicationUnit.drop || MedicationUnit.ml => Icons.water_drop,
     };
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow: context.isDark
-            ? const []
-            : const [
-                BoxShadow(
-                  color: Color(0x0D000000),
-                  blurRadius: 2,
-                  offset: Offset(0, 1),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          boxShadow: context.isDark
+              ? const []
+              : const [
+                  BoxShadow(
+                    color: Color(0x0D000000),
+                    blurRadius: 2,
+                    offset: Offset(0, 1),
+                  ),
+                ],
+        ),
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight,
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(icon, color: AppColors.primary, size: 22),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        medication.name,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Theme.of(context).colorScheme.onSurface,
+                          letterSpacing: -0.45,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${medication.currentQuantity} ${medication.unit.plural} restantes • ${medication.dosage}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (isCritical)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.error,
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                    ),
+                    child: Text(
+                      'BAIXO',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                  ),
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.edit_outlined,
+                  color: context.appTextMuted,
+                  size: 18,
                 ),
               ],
-      ),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppColors.primaryLight,
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: Icon(icon, color: AppColors.primary, size: 22),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      medication.name,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Theme.of(context).colorScheme.onSurface,
-                        letterSpacing: -0.45,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${medication.currentQuantity} ${medication.unit.plural} restantes • ${medication.dosage}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (isCritical)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.error,
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
-                  ),
-                  child: Text(
-                    'BAIXO',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.0,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: ratio,
-              minHeight: 6,
-              backgroundColor: context.appSurfaceAlt,
-              valueColor: AlwaysStoppedAnimation(barColor),
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Capacidade ${medication.capacityPercent}%',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: context.appTextMuted,
+            const SizedBox(height: AppSpacing.sm),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: ratio,
+                minHeight: 6,
+                backgroundColor: context.appSurfaceAlt,
+                valueColor: AlwaysStoppedAnimation(barColor),
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 6),
+            Text(
+              'Capacidade ${medication.capacityPercent}%',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: context.appTextMuted,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
