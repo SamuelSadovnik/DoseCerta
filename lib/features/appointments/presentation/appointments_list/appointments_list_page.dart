@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -12,6 +14,7 @@ import '../../../../core/theme/theme_extensions.dart';
 import '../../../../shared/widgets/app_top_bar.dart';
 import '../../../../shared/widgets/dosecerta_bottom_nav.dart';
 import '../../../../shared/widgets/primary_button.dart';
+import '../../../dependents/presentation/providers/dependent_providers.dart';
 import '../../domain/entities/appointment.dart';
 import '../providers/appointment_providers.dart';
 
@@ -24,7 +27,24 @@ class AppointmentsListPage extends ConsumerStatefulWidget {
 }
 
 class _AppointmentsListPageState extends ConsumerState<AppointmentsListPage> {
+  Timer? _refreshTimer;
   String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (!mounted) return;
+      ref.invalidate(appointmentsProvider);
+      ref.invalidate(dependentsProvider);
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
