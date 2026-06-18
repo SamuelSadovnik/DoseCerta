@@ -15,6 +15,7 @@ import '../../../../core/theme/theme_extensions.dart';
 import '../../../../shared/widgets/app_top_bar.dart';
 import '../../../../shared/widgets/dependent_context_selector.dart';
 import '../../../../shared/widgets/dosecerta_bottom_nav.dart';
+import '../../../../shared/widgets/empty_care_profiles_state.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../../../dependents/presentation/providers/dependent_providers.dart';
 import '../../domain/entities/appointment.dart';
@@ -103,82 +104,78 @@ class _AppointmentsListPageState extends ConsumerState<AppointmentsListPage> {
                       ),
                     ),
                     const SizedBox(height: AppSpacing.sm),
-                    if (accountType == AccountType.caregiver) ...[
+                    if (accountType == AccountType.caregiver &&
+                        !hasNoCareProfiles) ...[
                       const DependentContextSelector(),
                       const SizedBox(height: AppSpacing.sm),
                     ],
-                    _SearchField(onChanged: (v) => setState(() => _query = v)),
-                    const SizedBox(height: AppSpacing.sm),
-                    Expanded(
-                      child: hasNoCareProfiles
-                          ? _EmptyActionState(
-                              title: 'Nenhuma pessoa cuidada cadastrada',
-                              message:
-                                  'Adicione uma pessoa antes de cadastrar consultas para acompanhamento.',
-                              buttonLabel: 'Adicionar pessoa cuidada',
-                              icon: Icons.group_add,
-                              onPressed: () => Navigator.of(
-                                context,
-                              ).pushNamed(AppRoutes.newDependent),
-                            )
-                          : async.when(
-                              loading: () => const Center(
-                                child: CircularProgressIndicator(),
-                              ),
-                              error: (e, _) =>
-                                  Center(child: Text('Erro ao carregar: $e')),
-                              data: (list) {
-                                final filtered = _filter(list);
-                                if (filtered.isEmpty) {
-                                  return Center(
-                                    child: Text(
-                                      'Nenhuma consulta encontrada.',
-                                      style: TextStyle(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.onSurfaceVariant,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  );
-                                }
-                                return ListView.separated(
-                                  itemCount: filtered.length,
-                                  separatorBuilder: (_, _) =>
-                                      const SizedBox(height: AppSpacing.sm + 4),
-                                  itemBuilder: (_, i) => _AppointmentCard(
-                                    appointment: filtered[i],
-                                    showDependent:
-                                        accountType == AccountType.caregiver &&
-                                        selectedDependentId == null,
-                                    onTap: () =>
-                                        Navigator.of(context).pushNamed(
-                                          AppRoutes.alertAppointment,
-                                          arguments: filtered[i],
-                                        ),
+                    if (hasNoCareProfiles) ...[
+                      const SizedBox(height: AppSpacing.lg),
+                      EmptyCareProfilesState(
+                        message:
+                            'Adicione alguém para acompanhar consultas e rotina de cuidado. O convite por código é opcional.',
+                        onPressed: () => Navigator.of(
+                          context,
+                        ).pushNamed(AppRoutes.newDependent),
+                      ),
+                      const Spacer(),
+                    ] else ...[
+                      _SearchField(
+                        onChanged: (v) => setState(() => _query = v),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Expanded(
+                        child: async.when(
+                          loading: () =>
+                              const Center(child: CircularProgressIndicator()),
+                          error: (e, _) =>
+                              Center(child: Text('Erro ao carregar: $e')),
+                          data: (list) {
+                            final filtered = _filter(list);
+                            if (filtered.isEmpty) {
+                              return Center(
+                                child: Text(
+                                  'Nenhuma consulta encontrada.',
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                    fontSize: 14,
                                   ),
-                                );
-                              },
-                            ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: PrimaryButton(
-                        label: hasNoCareProfiles
-                            ? 'Adicionar pessoa cuidada'
-                            : 'Nova consulta',
-                        trailingIcon: null,
-                        leadingIcon: hasNoCareProfiles
-                            ? Icons.group_add
-                            : Icons.add,
-                        size: PrimaryButtonSize.medium,
-                        onPressed: () => Navigator.of(context).pushNamed(
-                          hasNoCareProfiles
-                              ? AppRoutes.newDependent
-                              : AppRoutes.newAppointment,
+                                ),
+                              );
+                            }
+                            return ListView.separated(
+                              itemCount: filtered.length,
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(height: AppSpacing.sm + 4),
+                              itemBuilder: (_, i) => _AppointmentCard(
+                                appointment: filtered[i],
+                                showDependent:
+                                    accountType == AccountType.caregiver &&
+                                    selectedDependentId == null,
+                                onTap: () => Navigator.of(context).pushNamed(
+                                  AppRoutes.alertAppointment,
+                                  arguments: filtered[i],
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
-                    ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: PrimaryButton(
+                          label: 'Nova consulta',
+                          trailingIcon: null,
+                          leadingIcon: Icons.add,
+                          size: PrimaryButtonSize.medium,
+                          onPressed: () => Navigator.of(
+                            context,
+                          ).pushNamed(AppRoutes.newAppointment),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: AppSpacing.huge + AppSpacing.xl),
                   ],
                 ),
@@ -251,70 +248,6 @@ class _AppointmentsListPageState extends ConsumerState<AppointmentsListPage> {
       case 4:
         Navigator.of(context).pushReplacementNamed(AppRoutes.profile);
     }
-  }
-}
-
-class _EmptyActionState extends StatelessWidget {
-  const _EmptyActionState({
-    required this.title,
-    required this.message,
-    required this.buttonLabel,
-    required this.icon,
-    required this.onPressed,
-  });
-
-  final String title;
-  final String message;
-  final String buttonLabel;
-  final IconData icon;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(AppRadius.xl),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: AppColors.primary, size: 34),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                height: 1.4,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            PrimaryButton(
-              label: buttonLabel,
-              leadingIcon: icon,
-              trailingIcon: null,
-              size: PrimaryButtonSize.medium,
-              onPressed: onPressed,
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 

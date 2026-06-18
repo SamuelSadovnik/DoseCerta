@@ -13,6 +13,7 @@ import '../../../core/theme/theme_extensions.dart';
 import '../../../shared/widgets/app_top_bar.dart';
 import '../../../shared/widgets/dependent_context_selector.dart';
 import '../../../shared/widgets/dosecerta_bottom_nav.dart';
+import '../../../shared/widgets/empty_care_profiles_state.dart';
 import '../../dependents/presentation/providers/dependent_providers.dart';
 import '../domain/entities/day_dose_detail.dart';
 import '../domain/entities/history_summary.dart';
@@ -80,28 +81,32 @@ class HistoryPage extends ConsumerWidget {
                       height: 1.15,
                     ),
                   ),
-                  if (accountType == AccountType.caregiver) ...[
+                  if (accountType == AccountType.caregiver &&
+                      !hasNoCareProfiles) ...[
                     const SizedBox(height: AppSpacing.sm),
                     const DependentContextSelector(),
                   ],
-                  const SizedBox(height: AppSpacing.sm),
-                  _MonthSwitcher(
-                    label: monthLabel,
-                    onPrev: () =>
-                        ref.read(selectedMonthProvider.notifier).state =
-                            DateTime(month.year, month.month - 1),
-                    onNext: () =>
-                        ref.read(selectedMonthProvider.notifier).state =
-                            DateTime(month.year, month.month + 1),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  if (hasNoCareProfiles)
-                    _EmptyHistoryState(
+                  if (hasNoCareProfiles) ...[
+                    const SizedBox(height: AppSpacing.lg),
+                    EmptyCareProfilesState(
+                      message:
+                          'Adicione alguém para acompanhar tratamentos, consultas, estoque e histórico. O convite por código é opcional.',
                       onPressed: () => Navigator.of(
                         context,
                       ).pushNamed(AppRoutes.newDependent),
-                    )
-                  else
+                    ),
+                  ] else ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    _MonthSwitcher(
+                      label: monthLabel,
+                      onPrev: () =>
+                          ref.read(selectedMonthProvider.notifier).state =
+                              DateTime(month.year, month.month - 1),
+                      onNext: () =>
+                          ref.read(selectedMonthProvider.notifier).state =
+                              DateTime(month.year, month.month + 1),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
                     async.when(
                       loading: () => const Padding(
                         padding: EdgeInsets.symmetric(vertical: 48),
@@ -130,6 +135,7 @@ class HistoryPage extends ConsumerWidget {
                         );
                       },
                     ),
+                  ],
                 ],
               ),
             ),
@@ -282,58 +288,6 @@ class HistoryPage extends ConsumerWidget {
       builder: (_) => const _DayDetailsSheet(),
     );
     ref.read(selectedHistoryDayProvider.notifier).state = null;
-  }
-}
-
-class _EmptyHistoryState extends StatelessWidget {
-  const _EmptyHistoryState({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(AppRadius.xl),
-      ),
-      child: Column(
-        children: [
-          Icon(Icons.history, color: AppColors.primary, size: 34),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            'Nenhum histórico ainda',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Cadastre uma pessoa cuidada e tratamentos para acompanhar a evolução por dia e por tratamento.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              height: 1.4,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: onPressed,
-              icon: const Icon(Icons.group_add),
-              label: const Text('Adicionar pessoa cuidada'),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 

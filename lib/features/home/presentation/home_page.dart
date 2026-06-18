@@ -15,6 +15,7 @@ import '../../../core/theme/theme_extensions.dart';
 import '../../../shared/widgets/app_top_bar.dart';
 import '../../../shared/widgets/dependent_context_selector.dart';
 import '../../../shared/widgets/dosecerta_bottom_nav.dart';
+import '../../../shared/widgets/empty_care_profiles_state.dart';
 import '../../auth/presentation/providers/auth_providers.dart';
 import '../../dependents/presentation/providers/dependent_providers.dart';
 import '../domain/entities/dose_schedule.dart';
@@ -184,7 +185,12 @@ class _HomeBody extends StatelessWidget {
         ],
         const SizedBox(height: AppSpacing.lg),
         if (hasNoCareProfiles) ...[
-          const _EmptyCaregiverHome(),
+          EmptyCareProfilesState(
+            message:
+                'Adicione alguém para acompanhar tratamentos, consultas, estoque e histórico. O convite por código é opcional.',
+            onPressed: () =>
+                Navigator.of(context).pushNamed(AppRoutes.newDependent),
+          ),
           const SizedBox(height: AppSpacing.lg),
         ] else ...[
           Row(
@@ -300,63 +306,6 @@ class _HomeBody extends StatelessWidget {
 
   static String _capitalize(String s) =>
       s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
-}
-
-class _EmptyCaregiverHome extends StatelessWidget {
-  const _EmptyCaregiverHome();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(AppRadius.xl),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.primaryLight,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.group_add, color: AppColors.primary),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            'Nenhuma pessoa cuidada cadastrada ainda',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Adicione alguém para acompanhar tratamentos, consultas, estoque e histórico. O convite por código é opcional.',
-            style: TextStyle(
-              fontSize: 14,
-              height: 1.4,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () =>
-                  Navigator.of(context).pushNamed(AppRoutes.newDependent),
-              icon: const Icon(Icons.add),
-              label: const Text('Adicionar pessoa cuidada'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _DayHeader extends StatelessWidget {
