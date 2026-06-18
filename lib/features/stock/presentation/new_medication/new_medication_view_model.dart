@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_error.dart';
 import '../../../../core/providers/selected_dependent_provider.dart';
+import '../../../dependents/presentation/providers/care_subject_provider.dart';
 import '../../../home/presentation/providers/home_providers.dart';
 import '../../../history/presentation/providers/history_providers.dart';
 import '../../domain/repositories/medication_repository.dart';
@@ -72,6 +73,9 @@ class NewMedicationViewModel extends StateNotifier<NewMedicationState> {
     }
     state = state.copyWith(isLoading: true, clearError: true);
     try {
+      final targetDependentId =
+          state.dependentId ??
+          await _ref.read(currentCareSubjectDependentIdProvider.future);
       await _repository.create(
         name: state.name.trim(),
         dosage: state.dosage.trim(),
@@ -79,9 +83,9 @@ class NewMedicationViewModel extends StateNotifier<NewMedicationState> {
         initialQuantity: quantity,
         frequency: state.frequency!,
         durationDays: duration,
-        dependentId: state.dependentId,
+        dependentId: targetDependentId,
       );
-      final createdForDependentId = state.dependentId;
+      final createdForDependentId = targetDependentId;
       _ref.invalidate(medicationsProvider);
       if (createdForDependentId != null) {
         _ref.invalidate(medicationsByDependentProvider(createdForDependentId));

@@ -1,11 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/cache/page_cache_policy.dart';
-import '../../../../core/enums/account_type.dart';
-import '../../../../core/providers/account_type_provider.dart';
 import '../../../../core/providers/app_providers.dart';
-import '../../../../core/providers/selected_dependent_provider.dart';
-import '../../../dependents/presentation/providers/dependent_providers.dart';
+import '../../../dependents/presentation/providers/care_subject_provider.dart';
 import '../../data/datasources/medication_remote_datasource.dart';
 import '../../data/repositories/caching_medication_repository.dart';
 import '../../data/repositories/medication_repository_impl.dart';
@@ -58,14 +55,5 @@ final medicationsByDependentProvider = FutureProvider.autoDispose
 
 final currentMedicationDependentIdProvider =
     FutureProvider.autoDispose<String?>((ref) async {
-      final accountType = ref.watch(currentAccountTypeProvider);
-      if (accountType == AccountType.caregiver) {
-        return ref.watch(selectedCareDependentIdProvider);
-      }
-
-      final dependents = await ref.watch(dependentsProvider.future);
-      final linkedDependents = dependents.where(
-        (dependent) => dependent.isLinked,
-      );
-      return linkedDependents.isEmpty ? null : linkedDependents.first.id;
+      return ref.watch(currentCareSubjectDependentIdProvider.future);
     });

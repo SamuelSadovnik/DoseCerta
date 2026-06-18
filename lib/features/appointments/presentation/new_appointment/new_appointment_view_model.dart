@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_error.dart';
+import '../../../../core/providers/selected_dependent_provider.dart';
+import '../../../dependents/presentation/providers/care_subject_provider.dart';
 import '../../domain/entities/appointment.dart';
 import '../../domain/repositories/appointment_repository.dart';
 import '../providers/appointment_providers.dart';
@@ -8,7 +10,9 @@ import 'new_appointment_state.dart';
 
 class NewAppointmentViewModel extends StateNotifier<NewAppointmentState> {
   NewAppointmentViewModel(this._repository, this._ref, this._appointment)
-    : super(_initialState(_appointment));
+    : super(
+        _initialState(_appointment, _ref.read(selectedCareDependentIdProvider)),
+      );
 
   final AppointmentRepository _repository;
   final Ref _ref;
@@ -72,13 +76,16 @@ class NewAppointmentViewModel extends StateNotifier<NewAppointmentState> {
     );
     state = state.copyWith(isLoading: true, clearError: true);
     try {
+      final targetDependentId =
+          state.dependentId ??
+          await _ref.read(currentCareSubjectDependentIdProvider.future);
       if (_appointment == null) {
         await _repository.create(
           doctorName: state.doctorName.trim(),
           specialty: state.specialty.trim(),
           scheduledAt: scheduled,
           location: state.location!.trim(),
-          dependentId: state.dependentId,
+          dependentId: targetDependentId,
         );
       } else {
         await _repository.reschedule(
@@ -87,7 +94,7 @@ class NewAppointmentViewModel extends StateNotifier<NewAppointmentState> {
           specialty: state.specialty.trim(),
           scheduledAt: scheduled,
           location: state.location!.trim(),
-          dependentId: state.dependentId,
+          dependentId: targetDependentId,
         );
       }
       _ref.invalidate(appointmentsProvider);
@@ -103,8 +110,13 @@ class NewAppointmentViewModel extends StateNotifier<NewAppointmentState> {
     }
   }
 
-  static NewAppointmentState _initialState(Appointment? appointment) {
-    if (appointment == null) return const NewAppointmentState();
+  static NewAppointmentState _initialState(
+    Appointment? appointment,
+    String? selectedDependentId,
+  ) {
+    if (appointment == null) {
+      return NewAppointmentState(dependentId: selectedDependentId);
+    }
     final scheduledAt = appointment.scheduledAt;
     return NewAppointmentState(
       doctorName: appointment.doctorName,
