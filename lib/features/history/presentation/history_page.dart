@@ -28,6 +28,16 @@ class HistoryPage extends ConsumerWidget {
     final dependentsAsync = ref.watch(dependentsProvider);
     final month = ref.watch(selectedMonthProvider);
     final async = ref.watch(historySummariesProvider);
+    final caregiverDependentsCount = accountType == AccountType.caregiver
+        ? dependentsAsync.maybeWhen(
+            data: (deps) => deps.length,
+            orElse: () => null,
+          )
+        : null;
+    final hasNoCareProfiles =
+        accountType == AccountType.caregiver &&
+        caregiverDependentsCount != null &&
+        caregiverDependentsCount == 0;
 
     final selectedDependentName = selectedDependentId == null
         ? null
@@ -85,34 +95,41 @@ class HistoryPage extends ConsumerWidget {
                             DateTime(month.year, month.month + 1),
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  async.when(
-                    loading: () => const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 48),
-                      child: Center(child: CircularProgressIndicator()),
+                  if (hasNoCareProfiles)
+                    _EmptyHistoryState(
+                      onPressed: () => Navigator.of(
+                        context,
+                      ).pushNamed(AppRoutes.newDependent),
+                    )
+                  else
+                    async.when(
+                      loading: () => const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 48),
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                      error: (e, _) =>
+                          Center(child: Text('Erro ao carregar: $e')),
+                      data: (summaries) {
+                        final calendarDays = _combinedCalendarDays(
+                          month,
+                          summaries,
+                        );
+                        return Column(
+                          children: [
+                            _Calendar(
+                              month: month,
+                              days: calendarDays,
+                              onDayTap: (day) =>
+                                  _showDayDetails(context, ref, day.date),
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                            _TreatmentSummarySection(
+                              treatments: _combinedTreatments(summaries),
+                            ),
+                          ],
+                        );
+                      },
                     ),
-                    error: (e, _) =>
-                        Center(child: Text('Erro ao carregar: $e')),
-                    data: (summaries) {
-                      final calendarDays = _combinedCalendarDays(
-                        month,
-                        summaries,
-                      );
-                      return Column(
-                        children: [
-                          _Calendar(
-                            month: month,
-                            days: calendarDays,
-                            onDayTap: (day) =>
-                                _showDayDetails(context, ref, day.date),
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          _TreatmentSummarySection(
-                            treatments: _combinedTreatments(summaries),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
                 ],
               ),
             ),
@@ -265,6 +282,58 @@ class HistoryPage extends ConsumerWidget {
       builder: (_) => const _DayDetailsSheet(),
     );
     ref.read(selectedHistoryDayProvider.notifier).state = null;
+  }
+}
+
+class _EmptyHistoryState extends StatelessWidget {
+  const _EmptyHistoryState({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(AppRadius.xl),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.history, color: AppColors.primary, size: 34),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Nenhum histórico ainda',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Cadastre uma pessoa cuidada e tratamentos para acompanhar a evolução por dia e por tratamento.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.4,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: onPressed,
+              icon: const Icon(Icons.group_add),
+              label: const Text('Adicionar pessoa cuidada'),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

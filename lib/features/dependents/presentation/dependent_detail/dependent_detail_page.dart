@@ -77,6 +77,10 @@ class _DependentDetailPageState extends ConsumerState<DependentDetailPage> {
     final dep = _dependent;
     final medsAsync = ref.watch(medicationsByDependentProvider(dep.id));
     final homeAsync = ref.watch(homeDataProvider);
+    final hasNoTreatments = medsAsync.maybeWhen(
+      data: (meds) => meds.isEmpty,
+      orElse: () => false,
+    );
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -94,133 +98,150 @@ class _DependentDetailPageState extends ConsumerState<DependentDetailPage> {
               onRegenerateCode: _regenerateActivationCode,
             ),
             const SizedBox(height: AppSpacing.lg),
-            _SectionTitle(title: 'Próxima dose'),
-            const SizedBox(height: AppSpacing.sm),
-            homeAsync.when(
-              loading: () => const _Card(
-                child: Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: CircularProgressIndicator(),
+            if (hasNoTreatments) ...[
+              _NoTreatmentsIntro(dependentName: dep.name),
+              const SizedBox(height: AppSpacing.lg),
+              PrimaryButton(
+                label: 'Cadastrar tratamento',
+                leadingIcon: Icons.add,
+                trailingIcon: null,
+                onPressed: () {
+                  Navigator.of(context).pushNamed(AppRoutes.newMedication);
+                },
+              ),
+            ] else ...[
+              _SectionTitle(title: 'Próxima dose'),
+              const SizedBox(height: AppSpacing.sm),
+              homeAsync.when(
+                loading: () => const _Card(
+                  child: Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: CircularProgressIndicator(),
+                    ),
                   ),
                 ),
-              ),
-              error: (e, _) =>
-                  _Card(child: Text('Erro ao carregar próxima dose: $e')),
-              data: (data) {
-                final next = data.todayDoses.isEmpty
-                    ? null
-                    : data.todayDoses
-                          .where(
-                            (d) =>
-                                d.scheduledAt.isAfter(DateTime.now()) ||
-                                d.status.name == 'pending' ||
-                                d.status.name == 'postponed',
-                          )
-                          .map((d) => d)
-                          .firstOrNull;
-                if (next == null) {
-                  return const _Card(
-                    child: Text('Nenhuma dose agendada por enquanto.'),
-                  );
-                }
-                final time = DateFormat(
-                  'dd/MM \'às\' HH:mm',
-                ).format(next.scheduledAt);
-                return _Card(
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryLight,
-                          shape: BoxShape.circle,
-                        ),
-                        alignment: Alignment.center,
-                        child: Icon(
-                          Icons.medical_services,
-                          color: AppColors.primary,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${next.medicationName} • ${next.dosage}',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: Theme.of(context).colorScheme.onSurface,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              time,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            _SectionTitle(title: 'Tratamentos ativos'),
-            const SizedBox(height: AppSpacing.sm),
-            medsAsync.when(
-              loading: () => const _Card(
-                child: Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: CircularProgressIndicator(),
-                  ),
-                ),
-              ),
-              error: (e, _) => _Card(child: Text('Erro: $e')),
-              data: (meds) {
-                if (meds.isEmpty) {
-                  return const _Card(
-                    child: Text('Nenhum medicamento cadastrado ainda.'),
-                  );
-                }
-                return Column(
-                  children: meds
-                      .map(
-                        (m) => Padding(
-                          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                          child: _MedicationTile(
-                            name: m.name,
-                            dosage: m.dosage,
-                            frequency: m.frequency,
-                            currentQuantity: m.currentQuantity,
+                error: (e, _) =>
+                    _Card(child: Text('Erro ao carregar próxima dose: $e')),
+                data: (data) {
+                  final next = data.todayDoses.isEmpty
+                      ? null
+                      : data.todayDoses
+                            .where(
+                              (d) =>
+                                  d.scheduledAt.isAfter(DateTime.now()) ||
+                                  d.status.name == 'pending' ||
+                                  d.status.name == 'postponed',
+                            )
+                            .map((d) => d)
+                            .firstOrNull;
+                  if (next == null) {
+                    return const _Card(
+                      child: Text('Nenhuma dose agendada por enquanto.'),
+                    );
+                  }
+                  final time = DateFormat(
+                    'dd/MM \'às\' HH:mm',
+                  ).format(next.scheduledAt);
+                  return _Card(
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryLight,
+                            shape: BoxShape.circle,
+                          ),
+                          alignment: Alignment.center,
+                          child: Icon(
+                            Icons.medical_services,
+                            color: AppColors.primary,
+                            size: 20,
                           ),
                         ),
-                      )
-                      .toList(),
-                );
-              },
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            PrimaryButton(
-              label: 'Cadastrar medicamento',
-              leadingIcon: Icons.add,
-              trailingIcon: null,
-              onPressed: () {
-                Navigator.of(context).pushNamed(AppRoutes.newMedication);
-              },
-            ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${next.medicationName} • ${next.dosage}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                time,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              _SectionTitle(title: 'Tratamentos ativos'),
+              const SizedBox(height: AppSpacing.sm),
+              medsAsync.when(
+                loading: () => const _Card(
+                  child: Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+                ),
+                error: (e, _) => _Card(child: Text('Erro: $e')),
+                data: (meds) {
+                  if (meds.isEmpty) {
+                    return const _Card(
+                      child: Text('Nenhum medicamento cadastrado ainda.'),
+                    );
+                  }
+                  return Column(
+                    children: meds
+                        .map(
+                          (m) => Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: AppSpacing.sm,
+                            ),
+                            child: _MedicationTile(
+                              name: m.name,
+                              dosage: m.dosage,
+                              frequency: m.frequency,
+                              currentQuantity: m.currentQuantity,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  );
+                },
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              PrimaryButton(
+                label: 'Cadastrar tratamento',
+                leadingIcon: Icons.add,
+                trailingIcon: null,
+                onPressed: () {
+                  Navigator.of(context).pushNamed(AppRoutes.newMedication);
+                },
+              ),
+            ],
           ],
         ),
       ),
@@ -297,7 +318,7 @@ class _LinkSection extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Essa pessoa já tem o próprio app. As doses agora podem ser marcadas por ela.',
+                    'Essa pessoa também pode marcar as próprias doses pelo app.',
                     style: TextStyle(
                       fontSize: 12,
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -327,7 +348,7 @@ class _LinkSection extends StatelessWidget {
               Icon(Icons.link, color: AppColors.primary, size: 18),
               const SizedBox(width: 8),
               Text(
-                'Aguardando vinculação',
+                'Perfil gerenciado por você',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -338,7 +359,7 @@ class _LinkSection extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Essa pessoa pode instalar o app, criar uma conta e digitar este código em "Vincular a um responsável" para passar a marcar as doses por conta própria.',
+            'Você já pode cuidar dessa pessoa por aqui. Se ela também for usar o app, compartilhe este código para vincular a conta dela.',
             style: TextStyle(
               fontSize: 12,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -415,11 +436,68 @@ class _LinkSection extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Use essa opção quando o código anterior expirar ou a pessoa não conseguir vincular a conta.',
+            'Convite opcional. Use essa opção quando o código anterior expirar ou a pessoa não conseguir vincular a conta.',
             style: TextStyle(
               fontSize: 11,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
               height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NoTreatmentsIntro extends StatelessWidget {
+  const _NoTreatmentsIntro({required this.dependentName});
+
+  final String dependentName;
+
+  @override
+  Widget build(BuildContext context) {
+    final firstName = dependentName.split(' ').first;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.primaryLight,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.medication, color: AppColors.primary, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Ainda não há tratamento cadastrado',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Quando quiser acompanhar medicamentos, estoque e doses de $firstName, cadastre o primeiro tratamento. Isso não depende do aceite do convite.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.4,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

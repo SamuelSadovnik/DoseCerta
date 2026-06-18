@@ -31,6 +31,16 @@ class StockListPage extends ConsumerWidget {
     final dependentsAsync = ref.watch(dependentsProvider);
     final state = ref.watch(stockListViewModelProvider);
     final vm = ref.read(stockListViewModelProvider.notifier);
+    final caregiverDependentsCount = accountType == AccountType.caregiver
+        ? dependentsAsync.maybeWhen(
+            data: (deps) => deps.length,
+            orElse: () => null,
+          )
+        : null;
+    final hasNoCareProfiles =
+        accountType == AccountType.caregiver &&
+        caregiverDependentsCount != null &&
+        caregiverDependentsCount == 0;
 
     final selectedDependentName = selectedDependentId == null
         ? null
@@ -83,61 +93,84 @@ class StockListPage extends ConsumerWidget {
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     Expanded(
-                      child: medsAsync.when(
-                        loading: () =>
-                            const Center(child: CircularProgressIndicator()),
-                        error: (e, _) =>
-                            Center(child: Text('Erro ao carregar: $e')),
-                        data: (meds) {
-                          final filtered = _filter(meds, state.query)
-                              .where(
-                                (medication) => switch (state.filter) {
-                                  TreatmentFilter.active => !medication.isEnded,
-                                  TreatmentFilter.ended => medication.isEnded,
-                                },
-                              )
-                              .toList();
-                          if (filtered.isEmpty) {
-                            return Center(
-                              child: Text(
-                                state.query.trim().isEmpty
-                                    ? _emptyTextFor(state.filter)
-                                    : 'Nenhum medicamento encontrado.',
-                                style: TextStyle(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                  fontSize: 14,
-                                ),
+                      child: hasNoCareProfiles
+                          ? _EmptyActionState(
+                              title: 'Nenhuma pessoa cuidada cadastrada',
+                              message:
+                                  'Adicione uma pessoa antes de cadastrar tratamentos para acompanhamento.',
+                              buttonLabel: 'Adicionar pessoa cuidada',
+                              icon: Icons.group_add,
+                              onPressed: () => Navigator.of(
+                                context,
+                              ).pushNamed(AppRoutes.newDependent),
+                            )
+                          : medsAsync.when(
+                              loading: () => const Center(
+                                child: CircularProgressIndicator(),
                               ),
-                            );
-                          }
-                          return ListView.separated(
-                            padding: const EdgeInsets.only(
-                              bottom: AppSpacing.md,
+                              error: (e, _) =>
+                                  Center(child: Text('Erro ao carregar: $e')),
+                              data: (meds) {
+                                final filtered = _filter(meds, state.query)
+                                    .where(
+                                      (medication) => switch (state.filter) {
+                                        TreatmentFilter.active =>
+                                          !medication.isEnded,
+                                        TreatmentFilter.ended =>
+                                          medication.isEnded,
+                                      },
+                                    )
+                                    .toList();
+                                if (filtered.isEmpty) {
+                                  return Center(
+                                    child: Text(
+                                      state.query.trim().isEmpty
+                                          ? _emptyTextFor(state.filter)
+                                          : 'Nenhum medicamento encontrado.',
+                                      style: TextStyle(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  );
+                                }
+                                return ListView.separated(
+                                  padding: const EdgeInsets.only(
+                                    bottom: AppSpacing.md,
+                                  ),
+                                  itemCount: filtered.length,
+                                  separatorBuilder: (_, _) =>
+                                      const SizedBox(height: AppSpacing.sm + 4),
+                                  itemBuilder: (_, i) => _InventoryCard(
+                                    medication: filtered[i],
+                                    onTap: () => _showStockActions(
+                                      context,
+                                      ref,
+                                      filtered[i],
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
-                            itemCount: filtered.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(height: AppSpacing.sm + 4),
-                            itemBuilder: (_, i) => _InventoryCard(
-                              medication: filtered[i],
-                              onTap: () =>
-                                  _showStockActions(context, ref, filtered[i]),
-                            ),
-                          );
-                        },
-                      ),
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: PrimaryButton(
-                        label: 'Cadastrar tratamento',
+                        label: hasNoCareProfiles
+                            ? 'Adicionar pessoa cuidada'
+                            : 'Cadastrar tratamento',
                         trailingIcon: null,
-                        leadingIcon: Icons.add,
+                        leadingIcon: hasNoCareProfiles
+                            ? Icons.group_add
+                            : Icons.add,
                         size: PrimaryButtonSize.medium,
-                        onPressed: () => Navigator.of(
-                          context,
-                        ).pushNamed(AppRoutes.newMedication),
+                        onPressed: () => Navigator.of(context).pushNamed(
+                          hasNoCareProfiles
+                              ? AppRoutes.newDependent
+                              : AppRoutes.newMedication,
+                        ),
                       ),
                     ),
                     const SizedBox(height: AppSpacing.huge + AppSpacing.xl),
@@ -359,6 +392,70 @@ class StockListPage extends ConsumerWidget {
     } finally {
       controller.dispose();
     }
+  }
+}
+
+class _EmptyActionState extends StatelessWidget {
+  const _EmptyActionState({
+    required this.title,
+    required this.message,
+    required this.buttonLabel,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String title;
+  final String message;
+  final String buttonLabel;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(AppRadius.xl),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: AppColors.primary, size: 34),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.4,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            PrimaryButton(
+              label: buttonLabel,
+              leadingIcon: icon,
+              trailingIcon: null,
+              size: PrimaryButtonSize.medium,
+              onPressed: onPressed,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

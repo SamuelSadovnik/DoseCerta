@@ -63,6 +63,12 @@ class _HomePageState extends ConsumerState<HomePage> {
                 .firstOrNull,
             orElse: () => null,
           );
+    final caregiverDependentsCount = accountType == AccountType.caregiver
+        ? dependentsAsync.maybeWhen(
+            data: (deps) => deps.length,
+            orElse: () => null,
+          )
+        : null;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -81,6 +87,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   accountType: accountType,
                   userName: user?.name,
                   selectedDependentName: selectedDependentName,
+                  caregiverDependentsCount: caregiverDependentsCount,
                 ),
               ),
             ),
@@ -116,12 +123,14 @@ class _HomeBody extends StatelessWidget {
     required this.accountType,
     required this.userName,
     required this.selectedDependentName,
+    required this.caregiverDependentsCount,
   });
 
   final HomeData data;
   final AccountType accountType;
   final String? userName;
   final String? selectedDependentName;
+  final int? caregiverDependentsCount;
 
   @override
   Widget build(BuildContext context) {
@@ -134,8 +143,12 @@ class _HomeBody extends StatelessWidget {
     final greeting = _greetingFor(DateTime.now().hour);
     final isCaregiver = accountType == AccountType.caregiver;
     final viewing = selectedDependentName == null
-        ? (isCaregiver ? 'Visualizando todos os dependentes' : null)
+        ? (isCaregiver ? 'Visualizando todas as pessoas cuidadas' : null)
         : 'Visualizando ${selectedDependentName!.split(' ').first}';
+    final hasNoCareProfiles =
+        isCaregiver &&
+        caregiverDependentsCount != null &&
+        caregiverDependentsCount == 0;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -170,41 +183,46 @@ class _HomeBody extends StatelessWidget {
           const DependentContextSelector(),
         ],
         const SizedBox(height: AppSpacing.lg),
-        Row(
-          children: [
-            Expanded(
-              child: _BentoCard(
-                icon: Icons.check_circle_outline,
-                iconBackground: AppColors.primaryLight,
-                iconColor: AppColors.primary,
-                value: '${data.dosesTakenToday}/${data.dosesTotalToday}',
-                label: 'Doses tomadas',
+        if (hasNoCareProfiles) ...[
+          const _EmptyCaregiverHome(),
+          const SizedBox(height: AppSpacing.lg),
+        ] else ...[
+          Row(
+            children: [
+              Expanded(
+                child: _BentoCard(
+                  icon: Icons.check_circle_outline,
+                  iconBackground: AppColors.primaryLight,
+                  iconColor: AppColors.primary,
+                  value: '${data.dosesTakenToday}/${data.dosesTotalToday}',
+                  label: 'Doses tomadas',
+                ),
               ),
-            ),
-            const SizedBox(width: AppSpacing.sm + 4),
-            Expanded(
-              child: _BentoCard(
-                icon: Icons.schedule,
-                iconBackground: AppColors.successLight,
-                iconColor: AppColors.success,
-                value: nextTime,
-                label: 'Próxima dose',
+              const SizedBox(width: AppSpacing.sm + 4),
+              Expanded(
+                child: _BentoCard(
+                  icon: Icons.schedule,
+                  iconBackground: AppColors.successLight,
+                  iconColor: AppColors.success,
+                  value: nextTime,
+                  label: 'Próxima dose',
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        Text(
-          isCaregiver ? 'Agenda de doses' : 'Medicamentos de hoje',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: Theme.of(context).colorScheme.onSurface,
-            letterSpacing: -0.45,
+            ],
           ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        ..._buildDoseItems(context),
+          const SizedBox(height: AppSpacing.lg),
+          Text(
+            isCaregiver ? 'Agenda de doses' : 'Medicamentos de hoje',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: Theme.of(context).colorScheme.onSurface,
+              letterSpacing: -0.45,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          ..._buildDoseItems(context),
+        ],
       ],
     );
   }
@@ -282,6 +300,63 @@ class _HomeBody extends StatelessWidget {
 
   static String _capitalize(String s) =>
       s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+}
+
+class _EmptyCaregiverHome extends StatelessWidget {
+  const _EmptyCaregiverHome();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(AppRadius.xl),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.primaryLight,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.group_add, color: AppColors.primary),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Nenhuma pessoa cuidada cadastrada ainda',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Adicione alguém para acompanhar tratamentos, consultas, estoque e histórico. O convite por código é opcional.',
+            style: TextStyle(
+              fontSize: 14,
+              height: 1.4,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(AppRoutes.newDependent),
+              icon: const Icon(Icons.add),
+              label: const Text('Adicionar pessoa cuidada'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _DayHeader extends StatelessWidget {

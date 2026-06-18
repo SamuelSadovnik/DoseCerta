@@ -8,6 +8,7 @@ class NewDependentState {
     this.isLoading = false,
     this.errorMessage,
     this.success = false,
+    this.createdDependent,
   });
 
   final String name;
@@ -16,6 +17,7 @@ class NewDependentState {
   final bool isLoading;
   final String? errorMessage;
   final bool success;
+  final Dependent? createdDependent;
 
   NewDependentState copyWith({
     String? name,
@@ -24,6 +26,7 @@ class NewDependentState {
     bool? isLoading,
     String? errorMessage,
     bool? success,
+    Dependent? createdDependent,
     bool clearError = false,
   }) {
     return NewDependentState(
@@ -33,6 +36,7 @@ class NewDependentState {
       isLoading: isLoading ?? this.isLoading,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       success: success ?? this.success,
+      createdDependent: createdDependent ?? this.createdDependent,
     );
   }
 }

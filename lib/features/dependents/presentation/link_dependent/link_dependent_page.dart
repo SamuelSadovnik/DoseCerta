@@ -100,7 +100,7 @@ class _LinkDependentPageState extends ConsumerState<LinkDependentPage> {
     final dependentsAsync = ref.watch(dependentsProvider);
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: const FormAppBar(title: 'Vincular a um responsável'),
+      appBar: const FormAppBar(title: 'Vincular responsável'),
       body: SafeArea(
         top: false,
         child: dependentsAsync.when(
@@ -172,7 +172,7 @@ class _LinkForm extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Peça o código a quem te cadastrou como dependente. Após vincular, você passa a marcar suas próprias doses.',
+                    'Digite o código enviado pelo seu responsável. Sua conta continua sendo sua; o vínculo só permite que ele acompanhe doses, consultas e histórico.',
                     style: TextStyle(
                       fontSize: 13,
                       color: AppColors.primaryDark,
@@ -187,7 +187,7 @@ class _LinkForm extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(left: 4, bottom: 8),
             child: Text(
-              'CÓDIGO DE ATIVAÇÃO',
+              'CÓDIGO DE CONVITE',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,

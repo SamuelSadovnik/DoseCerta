@@ -11,8 +11,18 @@ import '../../../../shared/widgets/primary_button.dart';
 import '../../domain/entities/dependent.dart';
 import '../providers/dependent_providers.dart';
 
+enum DependentsEntryPoint { normal, onboarding }
+
+class DependentsListArgs {
+  const DependentsListArgs({this.entryPoint = DependentsEntryPoint.normal});
+
+  final DependentsEntryPoint entryPoint;
+}
+
 class DependentsListPage extends ConsumerWidget {
-  const DependentsListPage({super.key});
+  const DependentsListPage({super.key, this.args = const DependentsListArgs()});
+
+  final DependentsListArgs args;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -25,6 +35,7 @@ class DependentsListPage extends ConsumerWidget {
           children: [
             AppTopBar(
               showBackButton: true,
+              onBack: () => _handleBack(context),
               trailing: Row(
                 children: [
                   Text(
@@ -116,6 +127,20 @@ class DependentsListPage extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  void _handleBack(BuildContext context) {
+    if (args.entryPoint == DependentsEntryPoint.onboarding) {
+      Navigator.of(
+        context,
+      ).pushNamedAndRemoveUntil(AppRoutes.home, (_) => false);
+      return;
+    }
+    if (!Navigator.of(context).canPop()) {
+      Navigator.of(context).pushReplacementNamed(AppRoutes.home);
+      return;
+    }
+    Navigator.of(context).maybePop();
   }
 }
 
@@ -252,7 +277,7 @@ class _DependentTile extends StatelessWidget {
         color: AppColors.primary,
         label: dependent.activationCode == null
             ? 'Aguardando código de vínculo'
-            : 'Aguardando aceite do código',
+            : 'Convite disponível',
       ),
       DependentStatus.overdue => _DependentStatusPresentation(
         icon: Icons.error,

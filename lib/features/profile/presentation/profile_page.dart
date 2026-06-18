@@ -105,7 +105,7 @@ class ProfilePage extends ConsumerWidget {
                       if (accountType == AccountType.caregiver)
                         _ProfileItem(
                           icon: Icons.family_restroom,
-                          label: 'Dependentes',
+                          label: 'Pessoas cuidadas',
                           badge: dependentsAsync.maybeWhen(
                             data: (deps) => deps.isEmpty
                                 ? null

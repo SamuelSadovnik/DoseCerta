@@ -54,6 +54,16 @@ class _AppointmentsListPageState extends ConsumerState<AppointmentsListPage> {
     final accountType = ref.watch(currentAccountTypeProvider);
     final selectedDependentId = ref.watch(selectedCareDependentIdProvider);
     final dependentsAsync = ref.watch(dependentsProvider);
+    final caregiverDependentsCount = accountType == AccountType.caregiver
+        ? dependentsAsync.maybeWhen(
+            data: (deps) => deps.length,
+            orElse: () => null,
+          )
+        : null;
+    final hasNoCareProfiles =
+        accountType == AccountType.caregiver &&
+        caregiverDependentsCount != null &&
+        caregiverDependentsCount == 0;
     final selectedDependentName = selectedDependentId == null
         ? null
         : dependentsAsync.maybeWhen(
@@ -100,54 +110,73 @@ class _AppointmentsListPageState extends ConsumerState<AppointmentsListPage> {
                     _SearchField(onChanged: (v) => setState(() => _query = v)),
                     const SizedBox(height: AppSpacing.sm),
                     Expanded(
-                      child: async.when(
-                        loading: () =>
-                            const Center(child: CircularProgressIndicator()),
-                        error: (e, _) =>
-                            Center(child: Text('Erro ao carregar: $e')),
-                        data: (list) {
-                          final filtered = _filter(list);
-                          if (filtered.isEmpty) {
-                            return Center(
-                              child: Text(
-                                'Nenhuma consulta encontrada.',
-                                style: TextStyle(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                  fontSize: 14,
-                                ),
+                      child: hasNoCareProfiles
+                          ? _EmptyActionState(
+                              title: 'Nenhuma pessoa cuidada cadastrada',
+                              message:
+                                  'Adicione uma pessoa antes de cadastrar consultas para acompanhamento.',
+                              buttonLabel: 'Adicionar pessoa cuidada',
+                              icon: Icons.group_add,
+                              onPressed: () => Navigator.of(
+                                context,
+                              ).pushNamed(AppRoutes.newDependent),
+                            )
+                          : async.when(
+                              loading: () => const Center(
+                                child: CircularProgressIndicator(),
                               ),
-                            );
-                          }
-                          return ListView.separated(
-                            itemCount: filtered.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(height: AppSpacing.sm + 4),
-                            itemBuilder: (_, i) => _AppointmentCard(
-                              appointment: filtered[i],
-                              showDependent:
-                                  accountType == AccountType.caregiver &&
-                                  selectedDependentId == null,
-                              onTap: () => Navigator.of(context).pushNamed(
-                                AppRoutes.alertAppointment,
-                                arguments: filtered[i],
-                              ),
+                              error: (e, _) =>
+                                  Center(child: Text('Erro ao carregar: $e')),
+                              data: (list) {
+                                final filtered = _filter(list);
+                                if (filtered.isEmpty) {
+                                  return Center(
+                                    child: Text(
+                                      'Nenhuma consulta encontrada.',
+                                      style: TextStyle(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  );
+                                }
+                                return ListView.separated(
+                                  itemCount: filtered.length,
+                                  separatorBuilder: (_, _) =>
+                                      const SizedBox(height: AppSpacing.sm + 4),
+                                  itemBuilder: (_, i) => _AppointmentCard(
+                                    appointment: filtered[i],
+                                    showDependent:
+                                        accountType == AccountType.caregiver &&
+                                        selectedDependentId == null,
+                                    onTap: () =>
+                                        Navigator.of(context).pushNamed(
+                                          AppRoutes.alertAppointment,
+                                          arguments: filtered[i],
+                                        ),
+                                  ),
+                                );
+                              },
                             ),
-                          );
-                        },
-                      ),
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: PrimaryButton(
-                        label: 'Nova consulta',
+                        label: hasNoCareProfiles
+                            ? 'Adicionar pessoa cuidada'
+                            : 'Nova consulta',
                         trailingIcon: null,
-                        leadingIcon: Icons.add,
+                        leadingIcon: hasNoCareProfiles
+                            ? Icons.group_add
+                            : Icons.add,
                         size: PrimaryButtonSize.medium,
-                        onPressed: () => Navigator.of(
-                          context,
-                        ).pushNamed(AppRoutes.newAppointment),
+                        onPressed: () => Navigator.of(context).pushNamed(
+                          hasNoCareProfiles
+                              ? AppRoutes.newDependent
+                              : AppRoutes.newAppointment,
+                        ),
                       ),
                     ),
                     const SizedBox(height: AppSpacing.huge + AppSpacing.xl),
@@ -222,6 +251,70 @@ class _AppointmentsListPageState extends ConsumerState<AppointmentsListPage> {
       case 4:
         Navigator.of(context).pushReplacementNamed(AppRoutes.profile);
     }
+  }
+}
+
+class _EmptyActionState extends StatelessWidget {
+  const _EmptyActionState({
+    required this.title,
+    required this.message,
+    required this.buttonLabel,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String title;
+  final String message;
+  final String buttonLabel;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(AppRadius.xl),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: AppColors.primary, size: 34),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.4,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            PrimaryButton(
+              label: buttonLabel,
+              leadingIcon: icon,
+              trailingIcon: null,
+              size: PrimaryButtonSize.medium,
+              onPressed: onPressed,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

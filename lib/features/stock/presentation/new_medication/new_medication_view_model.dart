@@ -10,7 +10,11 @@ import 'new_medication_state.dart';
 
 class NewMedicationViewModel extends StateNotifier<NewMedicationState> {
   NewMedicationViewModel(this._repository, this._ref)
-    : super(const NewMedicationState());
+    : super(
+        NewMedicationState(
+          dependentId: _ref.read(selectedCareDependentIdProvider),
+        ),
+      );
 
   final MedicationRepository _repository;
   final Ref _ref;
@@ -25,8 +29,11 @@ class NewMedicationViewModel extends StateNotifier<NewMedicationState> {
       state = state.copyWith(duration: v, clearError: true);
   void onFrequencyChanged(String v) =>
       state = state.copyWith(frequency: v, clearError: true);
-  void onDependentChanged(String? id) =>
-      state = state.copyWith(dependentId: id, clearError: true);
+  void onDependentChanged(String? id) => state = state.copyWith(
+    dependentId: id,
+    clearDependent: id == null,
+    clearError: true,
+  );
 
   Future<void> submit() async {
     if (state.isLoading) return;

@@ -23,9 +23,9 @@ class NewDependentPage extends ConsumerWidget {
 
     ref.listen(newDependentViewModelProvider, (prev, next) {
       if (next.success && prev?.success != true) {
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          AppRoutes.dependents,
-          (route) => route.settings.name == AppRoutes.home,
+        Navigator.of(context).pushReplacementNamed(
+          AppRoutes.dependentSuccess,
+          arguments: next.createdDependent,
         );
       }
       if (next.errorMessage != null &&

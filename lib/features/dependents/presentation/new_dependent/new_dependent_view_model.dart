@@ -30,13 +30,17 @@ class NewDependentViewModel extends StateNotifier<NewDependentState> {
     }
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      await _repository.create(
+      final dependent = await _repository.create(
         name: state.name.trim(),
         birthDate: state.birthDate!,
         relationship: state.relationship!,
       );
       _ref.invalidate(dependentsProvider);
-      state = state.copyWith(isLoading: false, success: true);
+      state = state.copyWith(
+        isLoading: false,
+        success: true,
+        createdDependent: dependent,
+      );
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
