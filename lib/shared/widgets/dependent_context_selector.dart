@@ -12,7 +12,9 @@ import '../../features/dependents/presentation/providers/dependent_providers.dar
 /// view and each cared person. Hidden for personal accounts and when the
 /// dependents list is empty.
 class DependentContextSelector extends ConsumerWidget {
-  const DependentContextSelector({super.key});
+  const DependentContextSelector({super.key, this.showSelf = false});
+
+  final bool showSelf;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -39,6 +41,16 @@ class DependentContextSelector extends ConsumerWidget {
                     ref.read(selectedCareContextProvider.notifier).state =
                         const CareContext.allDependents(),
               ),
+              if (showSelf) ...[
+                const SizedBox(width: 8),
+                _ContextPill(
+                  label: 'Eu',
+                  isSelected: selected.type == CareContextType.self,
+                  onTap: () =>
+                      ref.read(selectedCareContextProvider.notifier).state =
+                          const CareContext.self(),
+                ),
+              ],
               for (final d in deps) ...[
                 const SizedBox(width: 8),
                 _ContextPill(

@@ -15,6 +15,7 @@ abstract class HomeRemoteDatasource {
   Future<List<DoseScheduleDto>> getTodayDoses({
     required AccountType accountType,
     String? dependentId,
+    bool selfOnly = false,
   });
 }
 
@@ -26,12 +27,17 @@ class _HttpHomeRemoteDatasource implements HomeRemoteDatasource {
   Future<List<DoseScheduleDto>> getTodayDoses({
     required AccountType accountType,
     String? dependentId,
+    bool selfOnly = false,
   }) async {
+    final queryParameters = <String, dynamic>{};
+    if (dependentId != null) {
+      queryParameters['dependentId'] = dependentId;
+    } else if (selfOnly) {
+      queryParameters['scope'] = 'self';
+    }
     final res = await _dio.get<List<dynamic>>(
       '/doses',
-      queryParameters: dependentId != null
-          ? {'dependentId': dependentId}
-          : null,
+      queryParameters: queryParameters.isEmpty ? null : queryParameters,
     );
     return (res.data ?? const [])
         .map((e) => DoseScheduleDto.fromJson(e as Map<String, dynamic>))
@@ -44,6 +50,7 @@ class _MockHomeRemoteDatasource implements HomeRemoteDatasource {
   Future<List<DoseScheduleDto>> getTodayDoses({
     required AccountType accountType,
     String? dependentId,
+    bool selfOnly = false,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 600));
     final now = DateTime.now();

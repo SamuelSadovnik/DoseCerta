@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, In, MoreThan, Repository } from 'typeorm';
+import { Between, In, IsNull, MoreThan, Repository } from 'typeorm';
 import { Dose } from './dose.entity';
 import { Medication } from '../medications/medication.entity';
 import { Dependent } from '../dependents/dependent.entity';
@@ -58,15 +58,22 @@ export class DosesService {
     userId: string,
     accountType: string,
     dependentId?: string,
+    scope?: string,
   ): Promise<Dose[]> {
     const { start, endInclusive } = this.currentLocalDayRange();
     if (dependentId) {
       await this.findAccessibleDependent(userId, dependentId);
     }
     const doses = await this.repo.find({
-      where: await this.buildDoseWhere(userId, accountType, dependentId, {
-        scheduledAt: Between(start, endInclusive),
-      }),
+      where: await this.buildDoseWhere(
+        userId,
+        accountType,
+        dependentId,
+        scope,
+        {
+          scheduledAt: Between(start, endInclusive),
+        },
+      ),
       order: { scheduledAt: 'ASC' },
     });
     return this.withDependentNames(doses);
@@ -76,15 +83,22 @@ export class DosesService {
     userId: string,
     accountType: string,
     dependentId?: string,
+    scope?: string,
   ): Promise<Dose[]> {
     const { start } = this.currentLocalDayRange();
     if (dependentId) {
       await this.findAccessibleDependent(userId, dependentId);
     }
     const doses = await this.repo.find({
-      where: await this.buildDoseWhere(userId, accountType, dependentId, {
-        scheduledAt: Between(start, new Date('9999-12-31T23:59:59.999Z')),
-      }),
+      where: await this.buildDoseWhere(
+        userId,
+        accountType,
+        dependentId,
+        scope,
+        {
+          scheduledAt: Between(start, new Date('9999-12-31T23:59:59.999Z')),
+        },
+      ),
       order: { scheduledAt: 'ASC' },
     });
     return this.withDependentNames(doses);
@@ -235,10 +249,14 @@ export class DosesService {
     userId: string,
     accountType: string,
     dependentId: string | undefined,
+    scope: string | undefined,
     extra: Record<string, unknown>,
   ) {
     if (dependentId) {
       return { dependentId, ...extra };
+    }
+    if (scope === 'self') {
+      return { userId, dependentId: IsNull(), ...extra };
     }
     if (accountType !== 'caregiver') {
       return { userId, ...extra };

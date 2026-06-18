@@ -53,6 +53,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final homeAsync = ref.watch(homeDataProvider);
     final accountType = ref.watch(currentAccountTypeProvider);
     final user = ref.watch(currentUserProvider);
+    final selectedContext = ref.watch(selectedCareContextProvider);
     final selectedDependentId = ref.watch(selectedCareDependentIdProvider);
     final dependentsAsync = ref.watch(dependentsProvider);
     final selectedDependentName = selectedDependentId == null
@@ -87,6 +88,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   data: data,
                   accountType: accountType,
                   userName: user?.name,
+                  selectedContext: selectedContext,
                   selectedDependentName: selectedDependentName,
                   caregiverDependentsCount: caregiverDependentsCount,
                 ),
@@ -123,6 +125,7 @@ class _HomeBody extends StatelessWidget {
     required this.data,
     required this.accountType,
     required this.userName,
+    required this.selectedContext,
     required this.selectedDependentName,
     required this.caregiverDependentsCount,
   });
@@ -130,6 +133,7 @@ class _HomeBody extends StatelessWidget {
   final HomeData data;
   final AccountType accountType;
   final String? userName;
+  final CareContext selectedContext;
   final String? selectedDependentName;
   final int? caregiverDependentsCount;
 
@@ -143,9 +147,7 @@ class _HomeBody extends StatelessWidget {
     final firstName = (userName ?? '').split(' ').first;
     final greeting = _greetingFor(DateTime.now().hour);
     final isCaregiver = accountType == AccountType.caregiver;
-    final viewing = selectedDependentName == null
-        ? (isCaregiver ? 'Visualizando todas as pessoas cuidadas' : null)
-        : 'Visualizando ${selectedDependentName!.split(' ').first}';
+    final viewing = _viewingText(isCaregiver);
     final hasNoCareProfiles =
         isCaregiver &&
         caregiverDependentsCount != null &&
@@ -181,7 +183,7 @@ class _HomeBody extends StatelessWidget {
         ),
         if (isCaregiver) ...[
           const SizedBox(height: AppSpacing.md),
-          const DependentContextSelector(),
+          const DependentContextSelector(showSelf: true),
         ],
         const SizedBox(height: AppSpacing.lg),
         if (hasNoCareProfiles) ...[
@@ -237,6 +239,17 @@ class _HomeBody extends StatelessWidget {
     if (hour < 12) return 'Bom dia';
     if (hour < 18) return 'Boa tarde';
     return 'Boa noite';
+  }
+
+  String? _viewingText(bool isCaregiver) {
+    if (!isCaregiver) return null;
+    return switch (selectedContext.type) {
+      CareContextType.self => 'Visualizando meus cuidados',
+      CareContextType.dependent =>
+        'Visualizando ${selectedDependentName?.split(' ').first ?? 'pessoa cuidada'}',
+      CareContextType.allDependents =>
+        'Visualizando tudo: meus cuidados e pessoas cuidadas',
+    };
   }
 
   List<Widget> _buildDoseItems(BuildContext context) {

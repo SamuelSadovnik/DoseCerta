@@ -19,16 +19,18 @@ export class DosesController {
   schedule(
     @CurrentUser() user: RequestUser,
     @Query('dependentId') dependentId?: string,
+    @Query('scope') scope?: string,
   ) {
-    return this.doses.schedule(user.id, user.accountType, dependentId);
+    return this.doses.schedule(user.id, user.accountType, dependentId, scope);
   }
 
   @Get('today')
   today(
     @CurrentUser() user: RequestUser,
     @Query('dependentId') dependentId?: string,
+    @Query('scope') scope?: string,
   ) {
-    return this.doses.today(user.id, user.accountType, dependentId);
+    return this.doses.today(user.id, user.accountType, dependentId, scope);
   }
 
   @Post(':id/take')

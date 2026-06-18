@@ -249,12 +249,18 @@ export class CoreProxyController {
   dosesSchedule(
     @Req() req: Request,
     @Query('dependentId') dependentId?: string,
+    @Query('scope') scope?: string,
   ) {
+    const query = dependentId
+      ? { dependentId }
+      : scope === 'self'
+        ? { scope }
+        : undefined;
     return this.proxy.forward({
       method: 'GET',
       path: 'doses',
       user: req.user as ForwardUser,
-      query: dependentId ? { dependentId } : undefined,
+      query,
     });
   }
 
@@ -262,12 +268,18 @@ export class CoreProxyController {
   dosesToday(
     @Req() req: Request,
     @Query('dependentId') dependentId?: string,
+    @Query('scope') scope?: string,
   ) {
+    const query = dependentId
+      ? { dependentId }
+      : scope === 'self'
+        ? { scope }
+        : undefined;
     return this.proxy.forward({
       method: 'GET',
       path: 'doses/today',
       user: req.user as ForwardUser,
-      query: dependentId ? { dependentId } : undefined,
+      query,
     });
   }
 
