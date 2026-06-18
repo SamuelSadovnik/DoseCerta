@@ -90,17 +90,25 @@ class ProfilePage extends ConsumerWidget {
                     children: [
                       _ProfileItem(
                         icon: Icons.medical_services_outlined,
-                        label: 'Informações adicionais',
+                        label: 'Cartão de Saúde',
                         onTap: () => Navigator.of(
                           context,
                         ).pushNamed(AppRoutes.profileAdditionalInfo),
                       ),
                       _ProfileItem(
                         icon: Icons.contact_emergency_outlined,
-                        label: 'Contatos de emergência',
+                        label: 'Rede de emergência',
                         onTap: () => Navigator.of(
                           context,
                         ).pushNamed(AppRoutes.profileEmergencyContacts),
+                      ),
+                      _ProfileItem(
+                        icon: Icons.emergency_share_outlined,
+                        label: 'Botão de emergência',
+                        trailingText: 'SOS',
+                        onTap: () => Navigator.of(
+                          context,
+                        ).pushNamed(AppRoutes.emergency),
                       ),
                       if (accountType == AccountType.caregiver)
                         _ProfileItem(

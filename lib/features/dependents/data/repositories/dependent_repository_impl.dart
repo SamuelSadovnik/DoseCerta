@@ -40,6 +40,20 @@ class DependentRepositoryImpl implements DependentRepository {
   }
 
   @override
+  Future<Dependent> updateCareProfile({
+    required String id,
+    Map<String, String>? healthInfo,
+    List<Map<String, String>>? emergencyContacts,
+  }) async {
+    final dto = await _remote.updateCareProfile(
+      id: id,
+      healthInfo: healthInfo,
+      emergencyContacts: emergencyContacts,
+    );
+    return dto.toEntity();
+  }
+
+  @override
   Future<void> unlink() => _remote.unlink();
 
   @override

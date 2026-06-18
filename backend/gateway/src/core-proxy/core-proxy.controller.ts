@@ -147,6 +147,20 @@ export class CoreProxyController {
     });
   }
 
+  @Patch('dependents/:id/care-profile')
+  updateDependentCareProfile(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
+    return this.proxy.forward({
+      method: 'PATCH',
+      path: `dependents/${id}/care-profile`,
+      user: req.user as ForwardUser,
+      body,
+    });
+  }
+
   @Delete('dependents/:id')
   deleteDependent(@Req() req: Request, @Param('id') id: string) {
     return this.proxy.forward({

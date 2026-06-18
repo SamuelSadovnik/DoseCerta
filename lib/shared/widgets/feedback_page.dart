@@ -36,6 +36,8 @@ class FeedbackPageConfig {
     this.onBack,
     this.showEmergencyButton = false,
     this.onEmergency,
+    this.emergencyTitle = 'Emergência',
+    this.emergencySubtitle = 'Abrir ações de ajuda',
     this.headerOverride,
   });
 
@@ -47,6 +49,8 @@ class FeedbackPageConfig {
   final VoidCallback? onBack;
   final bool showEmergencyButton;
   final VoidCallback? onEmergency;
+  final String emergencyTitle;
+  final String emergencySubtitle;
   final Widget? headerOverride;
 }
 
@@ -129,7 +133,11 @@ class FeedbackPage extends StatelessWidget {
               ],
               if (config.showEmergencyButton) ...[
                 const SizedBox(height: AppSpacing.md),
-                EmergencyButton(onPressed: config.onEmergency ?? () {}),
+                EmergencyButton(
+                  title: config.emergencyTitle,
+                  subtitle: config.emergencySubtitle,
+                  onPressed: config.onEmergency ?? () {},
+                ),
               ],
             ],
           ),

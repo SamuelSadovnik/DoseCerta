@@ -24,6 +24,12 @@ abstract class DependentRemoteDatasource {
 
   Future<DependentDto> regenerateActivationCode(String id);
 
+  Future<DependentDto> updateCareProfile({
+    required String id,
+    Map<String, String>? healthInfo,
+    List<Map<String, String>>? emergencyContacts,
+  });
+
   Future<void> unlink();
 
   Future<void> delete(String id);
@@ -70,6 +76,24 @@ class _HttpDependentRemoteDatasource implements DependentRemoteDatasource {
   @override
   Future<DependentDto> regenerateActivationCode(String id) async {
     final res = await _dio.post<Map<String, dynamic>>('/dependents/$id/code');
+    return DependentDto.fromJson(res.data!);
+  }
+
+  @override
+  Future<DependentDto> updateCareProfile({
+    required String id,
+    Map<String, String>? healthInfo,
+    List<Map<String, String>>? emergencyContacts,
+  }) async {
+    final data = <String, dynamic>{};
+    if (healthInfo != null) data['healthInfo'] = healthInfo;
+    if (emergencyContacts != null) {
+      data['emergencyContacts'] = emergencyContacts;
+    }
+    final res = await _dio.patch<Map<String, dynamic>>(
+      '/dependents/$id/care-profile',
+      data: data,
+    );
     return DependentDto.fromJson(res.data!);
   }
 
@@ -166,6 +190,23 @@ class _MockDependentRemoteDatasource implements DependentRemoteDatasource {
           .toUpperCase()
           .padLeft(8, '0')
           .substring(0, 8),
+    );
+  }
+
+  @override
+  Future<DependentDto> updateCareProfile({
+    required String id,
+    Map<String, String>? healthInfo,
+    List<Map<String, String>>? emergencyContacts,
+  }) async {
+    await Future<void>.delayed(Duration(milliseconds: 300));
+    return DependentDto(
+      id: id,
+      name: 'Pessoa cuidada',
+      relationship: RelationshipType.other,
+      status: DependentStatus.active,
+      healthInfo: healthInfo,
+      emergencyContacts: emergencyContacts ?? const [],
     );
   }
 

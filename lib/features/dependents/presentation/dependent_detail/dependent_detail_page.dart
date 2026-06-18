@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/providers/selected_dependent_provider.dart';
 import '../../../../core/routing/app_routes.dart';
@@ -11,6 +12,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/theme_extensions.dart';
 import '../../../../shared/widgets/form_app_bar.dart';
 import '../../../../shared/widgets/primary_button.dart';
+import '../../../../shared/widgets/secondary_button.dart';
 import '../../../home/presentation/providers/home_providers.dart';
 import '../../../stock/presentation/providers/stock_providers.dart';
 import '../../domain/entities/dependent.dart';
@@ -96,6 +98,12 @@ class _DependentDetailPageState extends ConsumerState<DependentDetailPage> {
               dependent: dep,
               isRegeneratingCode: _isRegeneratingCode,
               onRegenerateCode: _regenerateActivationCode,
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            _CareProfileSection(
+              dependent: dep,
+              onEditHealth: _editHealthInfo,
+              onEditContacts: _editEmergencyContacts,
             ),
             const SizedBox(height: AppSpacing.lg),
             if (hasNoTreatments) ...[
@@ -246,6 +254,67 @@ class _DependentDetailPageState extends ConsumerState<DependentDetailPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _editHealthInfo() async {
+    final updated = await showModalBottomSheet<Map<String, String>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (_) => _HealthInfoSheet(initial: _dependent.healthInfo),
+    );
+    if (updated == null) return;
+
+    try {
+      final dep = await ref
+          .read(dependentRepositoryProvider)
+          .updateCareProfile(id: _dependent.id, healthInfo: updated);
+      if (!mounted) return;
+      setState(() => _dependent = dep);
+      ref.invalidate(dependentsProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cartão de Saúde atualizado.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível salvar os dados.')),
+      );
+    }
+  }
+
+  Future<void> _editEmergencyContacts() async {
+    final updated = await showModalBottomSheet<List<Map<String, String>>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (_) =>
+          _EmergencyContactsSheet(initial: _dependent.emergencyContacts),
+    );
+    if (updated == null) return;
+
+    try {
+      final dep = await ref
+          .read(dependentRepositoryProvider)
+          .updateCareProfile(id: _dependent.id, emergencyContacts: updated);
+      if (!mounted) return;
+      setState(() => _dependent = dep);
+      ref.invalidate(dependentsProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Rede de emergência atualizada.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível salvar os contatos.')),
+      );
+    }
   }
 
   Future<void> _regenerateActivationCode() async {
@@ -444,6 +513,433 @@ class _LinkSection extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _CareProfileSection extends StatelessWidget {
+  const _CareProfileSection({
+    required this.dependent,
+    required this.onEditHealth,
+    required this.onEditContacts,
+  });
+
+  final Dependent dependent;
+  final VoidCallback onEditHealth;
+  final VoidCallback onEditContacts;
+
+  @override
+  Widget build(BuildContext context) {
+    final healthEntries = _healthEntries(dependent.healthInfo);
+    final contacts = dependent.emergencyContacts;
+    final primaryContact = _primaryContact(contacts);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SectionTitle(title: 'Segurança e emergência'),
+        const SizedBox(height: AppSpacing.sm),
+        _Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.medical_information_outlined,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Cartão de Saúde',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: onEditHealth,
+                    child: const Text('Editar'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              if (healthEntries.isEmpty)
+                Text(
+                  'Nenhuma informação médica cadastrada para ${dependent.name.split(' ').first}.',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    height: 1.35,
+                  ),
+                )
+              else
+                for (final entry in healthEntries.take(4)) ...[
+                  Text(
+                    entry.key,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    entry.value,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        _Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.contact_emergency_outlined,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Rede de emergência',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: onEditContacts,
+                    child: Text(contacts.isEmpty ? 'Cadastrar' : 'Editar'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              if (primaryContact == null)
+                Text(
+                  'Nenhum contato de emergência cadastrado.',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    height: 1.35,
+                  ),
+                )
+              else ...[
+                Text(
+                  primaryContact['name'] ?? '',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  [
+                    primaryContact['relation'] ?? '',
+                    primaryContact['phone'] ?? '',
+                  ].where((value) => value.trim().isNotEmpty).join(' • '),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                SecondaryButton(
+                  label: 'Ligar para contato principal',
+                  leadingIcon: Icons.phone,
+                  onPressed: () =>
+                      _call(context, primaryContact['phone'] ?? ''),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  static List<MapEntry<String, String>> _healthEntries(
+    Map<String, String>? info,
+  ) {
+    return <MapEntry<String, String>>[
+      MapEntry('Alergias', info?['allergies'] ?? ''),
+      MapEntry('Condições', info?['conditions'] ?? ''),
+      MapEntry('Tipo sanguíneo', info?['bloodType'] ?? ''),
+      MapEntry('Medicamentos contínuos', info?['continuousMedications'] ?? ''),
+      MapEntry('Médico', info?['doctor'] ?? ''),
+      MapEntry('Plano de saúde', info?['healthInsurance'] ?? ''),
+      MapEntry('Hospital preferencial', info?['preferredHospital'] ?? ''),
+      MapEntry('Observações', info?['notes'] ?? ''),
+    ].where((entry) => entry.value.trim().isNotEmpty).toList();
+  }
+
+  static Map<String, String>? _primaryContact(
+    List<Map<String, String>> contacts,
+  ) {
+    if (contacts.isEmpty) return null;
+    for (final contact in contacts) {
+      if (contact['isPrimary'] == 'true') return contact;
+    }
+    return contacts.first;
+  }
+
+  static Future<void> _call(BuildContext context, String phone) async {
+    final cleaned = phone.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (cleaned.isEmpty) return;
+    final launched = await launchUrl(Uri(scheme: 'tel', path: cleaned));
+    if (!launched && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível iniciar a ligação.')),
+      );
+    }
+  }
+}
+
+class _HealthInfoSheet extends StatefulWidget {
+  const _HealthInfoSheet({required this.initial});
+
+  final Map<String, String>? initial;
+
+  @override
+  State<_HealthInfoSheet> createState() => _HealthInfoSheetState();
+}
+
+class _HealthInfoSheetState extends State<_HealthInfoSheet> {
+  late final TextEditingController _allergies;
+  late final TextEditingController _conditions;
+  late final TextEditingController _bloodType;
+  late final TextEditingController _continuousMedications;
+  late final TextEditingController _doctor;
+  late final TextEditingController _healthInsurance;
+  late final TextEditingController _preferredHospital;
+  late final TextEditingController _notes;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    _allergies = TextEditingController(text: initial?['allergies']);
+    _conditions = TextEditingController(text: initial?['conditions']);
+    _bloodType = TextEditingController(text: initial?['bloodType']);
+    _continuousMedications = TextEditingController(
+      text: initial?['continuousMedications'],
+    );
+    _doctor = TextEditingController(text: initial?['doctor']);
+    _healthInsurance = TextEditingController(text: initial?['healthInsurance']);
+    _preferredHospital = TextEditingController(
+      text: initial?['preferredHospital'],
+    );
+    _notes = TextEditingController(text: initial?['notes']);
+  }
+
+  @override
+  void dispose() {
+    _allergies.dispose();
+    _conditions.dispose();
+    _bloodType.dispose();
+    _continuousMedications.dispose();
+    _doctor.dispose();
+    _healthInsurance.dispose();
+    _preferredHospital.dispose();
+    _notes.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 12, 20, bottomInset + 20),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Cartão de Saúde',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _SheetField(label: 'Alergias', controller: _allergies),
+            _SheetField(label: 'Condições', controller: _conditions),
+            _SheetField(label: 'Tipo sanguíneo', controller: _bloodType),
+            _SheetField(
+              label: 'Medicamentos contínuos',
+              controller: _continuousMedications,
+            ),
+            _SheetField(label: 'Médico de referência', controller: _doctor),
+            _SheetField(label: 'Plano de saúde', controller: _healthInsurance),
+            _SheetField(
+              label: 'Hospital preferencial',
+              controller: _preferredHospital,
+            ),
+            _SheetField(label: 'Observações', controller: _notes),
+            const SizedBox(height: AppSpacing.md),
+            PrimaryButton(
+              label: 'Salvar Cartão de Saúde',
+              onPressed: () => Navigator.of(context).pop({
+                'allergies': _allergies.text.trim(),
+                'conditions': _conditions.text.trim(),
+                'bloodType': _bloodType.text.trim(),
+                'continuousMedications': _continuousMedications.text.trim(),
+                'doctor': _doctor.text.trim(),
+                'healthInsurance': _healthInsurance.text.trim(),
+                'preferredHospital': _preferredHospital.text.trim(),
+                'notes': _notes.text.trim(),
+              }),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmergencyContactsSheet extends StatefulWidget {
+  const _EmergencyContactsSheet({required this.initial});
+
+  final List<Map<String, String>> initial;
+
+  @override
+  State<_EmergencyContactsSheet> createState() =>
+      _EmergencyContactsSheetState();
+}
+
+class _EmergencyContactsSheetState extends State<_EmergencyContactsSheet> {
+  final _name = TextEditingController();
+  final _phone = TextEditingController();
+  final _relation = TextEditingController();
+  late List<Map<String, String>> _contacts;
+
+  @override
+  void initState() {
+    super.initState();
+    _contacts = widget.initial.map((contact) => {...contact}).toList();
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _phone.dispose();
+    _relation.dispose();
+    super.dispose();
+  }
+
+  void _add() {
+    if (_name.text.trim().isEmpty || _phone.text.trim().isEmpty) return;
+    final isPrimary = _contacts.isEmpty;
+    setState(() {
+      _contacts = [
+        ..._contacts,
+        {
+          'name': _name.text.trim(),
+          'phone': _phone.text.trim(),
+          'relation': _relation.text.trim(),
+          'isPrimary': isPrimary.toString(),
+        },
+      ];
+      _name.clear();
+      _phone.clear();
+      _relation.clear();
+    });
+  }
+
+  void _setPrimary(int index) {
+    setState(() {
+      _contacts = [
+        for (var i = 0; i < _contacts.length; i++)
+          {..._contacts[i], 'isPrimary': (i == index).toString()},
+      ];
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 12, 20, bottomInset + 20),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Rede de emergência',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _SheetField(label: 'Nome', controller: _name),
+            _SheetField(label: 'Telefone', controller: _phone),
+            _SheetField(label: 'Relação', controller: _relation),
+            SecondaryButton(
+              label: 'Adicionar contato',
+              leadingIcon: Icons.add,
+              onPressed: _add,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            for (var i = 0; i < _contacts.length; i++) ...[
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: IconButton(
+                  icon: Icon(
+                    _contacts[i]['isPrimary'] == 'true'
+                        ? Icons.star
+                        : Icons.star_border,
+                    color: AppColors.primary,
+                  ),
+                  onPressed: () => _setPrimary(i),
+                ),
+                title: Text(_contacts[i]['name'] ?? ''),
+                subtitle: Text(
+                  [
+                    _contacts[i]['relation'] ?? '',
+                    _contacts[i]['phone'] ?? '',
+                  ].where((value) => value.trim().isNotEmpty).join(' • '),
+                ),
+                trailing: IconButton(
+                  icon: Icon(Icons.delete_outline, color: AppColors.error),
+                  onPressed: () => setState(() => _contacts.removeAt(i)),
+                ),
+              ),
+            ],
+            const SizedBox(height: AppSpacing.md),
+            PrimaryButton(
+              label: 'Salvar rede',
+              onPressed: () => Navigator.of(context).pop(_contacts),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SheetField extends StatelessWidget {
+  const _SheetField({required this.label, required this.controller});
+
+  final String label;
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: TextField(
+        controller: controller,
+        decoration: InputDecoration(
+          labelText: label,
+          filled: true,
+          fillColor: Theme.of(context).scaffoldBackgroundColor,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            borderSide: BorderSide.none,
+          ),
+        ),
       ),
     );
   }

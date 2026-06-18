@@ -285,9 +285,8 @@ class AppointmentAlertPage extends ConsumerWidget {
           ),
         ],
         showEmergencyButton: true,
-        onEmergency: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Chamando responsável...')),
-        ),
+        emergencySubtitle: 'Chamar responsável ou contato',
+        onEmergency: () => Navigator.of(context).pushNamed(AppRoutes.emergency),
       ),
     );
   }
@@ -309,9 +308,9 @@ class AppointmentAlertPage extends ConsumerWidget {
             ),
           ],
           showEmergencyButton: true,
-          onEmergency: () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Chamando responsável...')),
-          ),
+          emergencySubtitle: 'Chamar responsável ou contato',
+          onEmergency: () =>
+              Navigator.of(context).pushNamed(AppRoutes.emergency),
         ),
       );
     }
@@ -327,9 +326,8 @@ class AppointmentAlertPage extends ConsumerWidget {
           ),
         ],
         showEmergencyButton: true,
-        onEmergency: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Chamando responsável...')),
-        ),
+        emergencySubtitle: 'Chamar contato principal',
+        onEmergency: () => Navigator.of(context).pushNamed(AppRoutes.emergency),
       ),
     );
   }

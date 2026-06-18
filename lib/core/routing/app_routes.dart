@@ -48,6 +48,7 @@ class AppRoutes {
   static const String profile = '/profile';
   static const String profileAdditionalInfo = '/profile/additional-info';
   static const String profileEmergencyContacts = '/profile/emergency-contacts';
+  static const String emergency = '/emergency';
   static const String profileNotifications = '/profile/notifications';
   static const String profilePrivacySecurity = '/profile/privacy-security';
   static const String profileTheme = '/profile/theme';
@@ -101,6 +102,8 @@ class AppRoutes {
         return _build(settings, const AdditionalInfoPage());
       case profileEmergencyContacts:
         return _build(settings, const EmergencyContactsPage());
+      case emergency:
+        return _build(settings, const EmergencyPage());
       case profileNotifications:
         return _build(settings, const NotificationsSettingsPage());
       case profilePrivacySecurity:

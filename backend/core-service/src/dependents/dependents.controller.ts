@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Patch,
   Param,
   ParseUUIDPipe,
   Post,
@@ -10,6 +11,7 @@ import {
 import { DependentsService } from './dependents.service';
 import { CreateDependentDto } from './dto/create-dependent.dto';
 import { LinkDependentDto } from './dto/link-dependent.dto';
+import { UpdateDependentCareProfileDto } from './dto/update-dependent-care-profile.dto';
 import { CurrentUser, RequestUser } from '../common/current-user.decorator';
 
 @Controller('dependents')
@@ -43,6 +45,15 @@ export class DependentsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.dependents.regenerateActivationCode(user, id);
+  }
+
+  @Patch(':id/care-profile')
+  updateCareProfile(
+    @CurrentUser() user: RequestUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateDependentCareProfileDto,
+  ) {
+    return this.dependents.updateCareProfile(user.id, id, dto);
   }
 
   @Delete(':id')
