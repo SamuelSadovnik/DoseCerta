@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -19,13 +21,37 @@ class DependentsListArgs {
   final DependentsEntryPoint entryPoint;
 }
 
-class DependentsListPage extends ConsumerWidget {
+class DependentsListPage extends ConsumerStatefulWidget {
   const DependentsListPage({super.key, this.args = const DependentsListArgs()});
 
   final DependentsListArgs args;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DependentsListPage> createState() => _DependentsListPageState();
+}
+
+class _DependentsListPageState extends ConsumerState<DependentsListPage> {
+  Timer? _refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.invalidate(dependentsProvider);
+    });
+    _refreshTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) ref.invalidate(dependentsProvider);
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final async = ref.watch(dependentsProvider);
 
     return Scaffold(
@@ -101,10 +127,15 @@ class DependentsListPage extends ConsumerWidget {
                                 Divider(height: 1, color: context.appDivider),
                             itemBuilder: (_, i) => _DependentTile(
                               dependent: deps[i],
-                              onTap: () => Navigator.of(context).pushNamed(
-                                AppRoutes.dependentDetail,
-                                arguments: deps[i],
-                              ),
+                              onTap: () async {
+                                await Navigator.of(context).pushNamed(
+                                  AppRoutes.dependentDetail,
+                                  arguments: deps[i],
+                                );
+                                if (context.mounted) {
+                                  ref.invalidate(dependentsProvider);
+                                }
+                              },
                             ),
                           );
                         },
@@ -130,7 +161,7 @@ class DependentsListPage extends ConsumerWidget {
   }
 
   void _handleBack(BuildContext context) {
-    if (args.entryPoint == DependentsEntryPoint.onboarding) {
+    if (widget.args.entryPoint == DependentsEntryPoint.onboarding) {
       Navigator.of(
         context,
       ).pushNamedAndRemoveUntil(AppRoutes.home, (_) => false);
