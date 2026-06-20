@@ -17,6 +17,15 @@ class NewDependentViewModel extends StateNotifier<NewDependentState> {
       state = state.copyWith(name: v, clearError: true);
   void onBirthDateChanged(DateTime d) =>
       state = state.copyWith(birthDate: d, clearError: true);
+  void onBirthDateTextChanged(String value) {
+    final parsed = _parseBirthDate(value);
+    state = state.copyWith(
+      birthDate: parsed,
+      clearBirthDate: parsed == null,
+      clearError: true,
+    );
+  }
+
   void onRelationshipChanged(RelationshipType r) =>
       state = state.copyWith(relationship: r, clearError: true);
 
@@ -25,7 +34,11 @@ class NewDependentViewModel extends StateNotifier<NewDependentState> {
     if (state.name.trim().isEmpty ||
         state.birthDate == null ||
         state.relationship == null) {
-      state = state.copyWith(errorMessage: 'Preencha todos os campos.');
+      state = state.copyWith(
+        errorMessage: state.birthDate == null
+            ? 'Informe uma data válida.'
+            : 'Preencha todos os campos.',
+      );
       return;
     }
     state = state.copyWith(isLoading: true, clearError: true);
@@ -50,6 +63,27 @@ class NewDependentViewModel extends StateNotifier<NewDependentState> {
         ),
       );
     }
+  }
+
+  DateTime? _parseBirthDate(String value) {
+    final digits = value.replaceAll(RegExp(r'\D'), '');
+    if (digits.length != 8) return null;
+
+    final day = int.tryParse(digits.substring(0, 2));
+    final month = int.tryParse(digits.substring(2, 4));
+    final year = int.tryParse(digits.substring(4, 8));
+    if (day == null || month == null || year == null) return null;
+
+    final date = DateTime(year, month, day);
+    final today = DateTime.now();
+    final currentDay = DateTime(today.year, today.month, today.day);
+    final isSameDate =
+        date.year == year && date.month == month && date.day == day;
+    if (!isSameDate || year < 1900 || date.isAfter(currentDay)) {
+      return null;
+    }
+
+    return date;
   }
 }
 

@@ -28,10 +28,11 @@ class NewDependentState {
     bool? success,
     Dependent? createdDependent,
     bool clearError = false,
+    bool clearBirthDate = false,
   }) {
     return NewDependentState(
       name: name ?? this.name,
-      birthDate: birthDate ?? this.birthDate,
+      birthDate: clearBirthDate ? null : (birthDate ?? this.birthDate),
       relationship: relationship ?? this.relationship,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),

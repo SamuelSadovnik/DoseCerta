@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
@@ -32,6 +33,7 @@ class LabeledTextField extends StatelessWidget {
     this.onTap,
     this.initialValue,
     this.variant = LabeledTextFieldVariant.pill,
+    this.inputFormatters,
   });
 
   final String? label;
@@ -48,6 +50,7 @@ class LabeledTextField extends StatelessWidget {
   final VoidCallback? onTap;
   final String? initialValue;
   final LabeledTextFieldVariant variant;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   Widget build(BuildContext context) {
@@ -88,6 +91,7 @@ class LabeledTextField extends StatelessWidget {
           onChanged: onChanged,
           obscureText: obscureText,
           keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           readOnly: readOnly,
           onTap: onTap,
           style: TextStyle(

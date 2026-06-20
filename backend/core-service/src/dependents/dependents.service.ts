@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   HttpException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -15,6 +16,7 @@ import { RequestUser } from '../common/current-user.decorator';
 
 @Injectable()
 export class DependentsService {
+  private readonly logger = new Logger(DependentsService.name);
   private readonly linkingServiceUrl =
     process.env.LINKING_SERVICE_URL || 'http://host.docker.internal:3003';
   private readonly linkingApiKey =
@@ -78,20 +80,19 @@ export class DependentsService {
       }),
     );
 
-    let activationCode: string;
     try {
-      activationCode = await this.generateLinkingCode({
+      dep.activationCode = await this.generateLinkingCode({
         userId: user.id,
         caregiverName: user.email,
         dependentId: dep.id,
         dependentName: dep.name,
       });
     } catch (error) {
-      await this.repo.remove(dep);
-      throw error;
+      this.logger.warn(
+        `Linking service unavailable; using local activation code for dependent ${dep.id}`,
+      );
     }
 
-    dep.activationCode = activationCode;
     return this.repo.save(dep);
   }
 
@@ -107,12 +108,19 @@ export class DependentsService {
       throw new ConflictException('Esta pessoa já está vinculada');
     }
 
-    dep.activationCode = await this.generateLinkingCode({
-      userId: user.id,
-      caregiverName: user.email,
-      dependentId: dep.id,
-      dependentName: dep.name,
-    });
+    dep.activationCode = this.generateCode();
+    try {
+      dep.activationCode = await this.generateLinkingCode({
+        userId: user.id,
+        caregiverName: user.email,
+        dependentId: dep.id,
+        dependentName: dep.name,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Linking service unavailable; regenerated local activation code for dependent ${dep.id}`,
+      );
+    }
 
     return this.repo.save(dep);
   }
@@ -179,7 +187,13 @@ export class DependentsService {
   }
 
   private async activateLinkingCode(code: string): Promise<void> {
-    await this.callLinkingService('/api/v1/links/activate', { code });
+    try {
+      await this.callLinkingService('/api/v1/links/activate', { code });
+    } catch (error) {
+      this.logger.warn(
+        `Linking service unavailable; activated local code ${code}`,
+      );
+    }
   }
 
   private async copyLinkedUserCareProfile(
