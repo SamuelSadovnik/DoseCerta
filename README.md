@@ -1,76 +1,90 @@
-# DoseCerta
+# 💊 DoseCerta
 
-Aplicativo mobile Flutter com backend NestJS e microservicos independentes para rotinas de saude, lembretes de medicamentos, dependentes e notificacoes.
+O **DoseCerta** é um aplicativo mobile desenvolvido em **Flutter**, com backend em **NestJS** e arquitetura baseada em **microsserviços**. Seu objetivo é auxiliar usuários na gestão de rotinas de saúde e na adesão a tratamentos médicos, reduzindo o risco de esquecimento de medicamentos e facilitando o acompanhamento de dependentes.
 
-## Estrutura
+Com o aplicativo, é possível cadastrar medicamentos, organizar horários de administração, receber lembretes automáticos e gerenciar dependentes por meio de um vínculo digital entre cuidador e paciente.
 
-| Caminho | Descricao |
-| --- | --- |
-| `lib/` | App Flutter |
-| `backend/` | API principal com gateway, auth-service e core-service |
-| `ms-linking/` | Microservico de vinculacao responsavel/dependente |
-| `ms-scheduler/` | Microservico agendador de doses |
-| `ms-notification/` | Microservico de notificacoes push e historico |
+---
 
-## Microservicos
+# 🏗️ Arquitetura e Padrões Utilizados
 
-### ms-linking
+## MVVM (Model-View-ViewModel)
 
-Servico REST responsavel por gerar codigos de ativacao, ativar vinculos entre responsaveis e dependentes, impedir duplicidade e publicar `LinkEstablished`.
+O aplicativo utiliza a arquitetura **MVVM**, promovendo a separação entre interface, lógica de negócio e acesso aos dados. Essa abordagem facilita a manutenção, a testabilidade e a escalabilidade do sistema.
 
-- Porta: `3003`
-- Swagger: `http://localhost:3003/api/docs`
-- Banco proprio: `postgres-linking`
-- RabbitMQ routing key: `link.established`
+## Factory Method
 
-### ms-scheduler
+O padrão de projeto **Factory Method** foi aplicado principalmente nos **DTOs (Data Transfer Objects)**, centralizando a conversão de dados JSON recebidos da API para objetos tipados em Dart. Isso proporciona maior organização, reutilização de código e segurança na manipulação dos dados.
 
-Servico interno sem API REST publica. Sincroniza doses e consultas pendentes da API principal por rotas internas protegidas e publica lembretes/eventos no RabbitMQ.
+---
 
-- Banco proprio: `postgres-scheduler`
-- RabbitMQ routing keys: `dose.reminder`, `dose.scheduled`, `appointment.reminder`
-- Rotas internas consumidas: `GET /internal/doses/pending`, `GET /internal/appointments/pending`
+# 💾 Solução de Armazenamento Local
 
-### ms-notification
+A persistência local foi implementada utilizando armazenamento seguro baseado em chave-valor, permitindo maior desempenho e melhor experiência para o usuário.
 
-Servico REST e consumidor RabbitMQ responsavel por registrar tokens de dispositivos, consumir eventos de dose/vinculo, enviar push em modo mock/FCM e manter historico de notificacoes.
+### Dados armazenados localmente
 
-- Porta: `3004`
-- Swagger: `http://localhost:3004/api/docs`
-- Banco proprio: `postgres-notification`
-- RabbitMQ queue: `ms-notification.events.queue`
+* **Token de autenticação (JWT)**: mantém o usuário autenticado entre sessões.
+* **Cache local de dados**: possibilita carregamento mais rápido das informações e acesso a determinados dados mesmo sem conexão com a internet.
 
-## Rodar com Docker
+---
 
-Subir os microservicos e infraestrutura da raiz:
+# 🌐 API Utilizada
 
-```bash
-docker compose up --build -d ms-linking ms-scheduler ms-notification
+O aplicativo consome uma **API REST** desenvolvida em **NestJS** e estruturada em microsserviços.
+
+Toda a comunicação é realizada através de um **API Gateway**, responsável por receber as requisições do aplicativo e encaminhá-las para os serviços apropriados.
+
+## Principais serviços
+
+| Serviço         | Responsabilidade                                   |
+| --------------- | -------------------------------------------------- |
+| Auth-Service    | Autenticação e autorização de usuários             |
+| Core-Service    | Gerenciamento de dependentes, medicamentos e doses |
+| ms-linking      | Vinculação entre responsáveis e dependentes        |
+| ms-scheduler    | Agendamento e sincronização de doses               |
+| ms-notification | Envio e gerenciamento de notificações              |
+
+---
+
+# 📁 Estrutura do Projeto
+
+| Diretório          | Descrição                                            |
+| ------------------ | ---------------------------------------------------- |
+| `lib/`             | Aplicação Flutter                                    |
+| `backend/`         | API principal (Gateway, Auth-Service e Core-Service) |
+| `ms-linking/`      | Microsserviço de vinculação                          |
+| `ms-scheduler/`    | Microsserviço de agendamento                         |
+| `ms-notification/` | Microsserviço de notificações                        |
+
+---
+
+# 🚀 Como Executar o Projeto
+
+## Pré-requisitos
+
+Antes de iniciar, certifique-se de possuir:
+
+* Docker Desktop instalado e em execução;
+* Flutter SDK instalado e configurado.
+
+---
+
+## 1. Configuração das Variáveis de Ambiente
+
+Crie os arquivos `.env` a partir dos modelos disponibilizados.
+
+### Windows
+
+```cmd
+copy .env.example .env
+copy backend\.env.example backend\.env
+copy ms-linking\.env.example ms-linking\.env
+copy ms-scheduler\.env.example ms-scheduler\.env
+copy ms-notification\.env.example ms-notification\.env
 ```
 
-Subir a API principal:
-
-```bash
-cd backend
-docker compose up --build -d auth-service core-service gateway
-```
-
-Portas principais:
-
-| Servico | URL |
-| --- | --- |
-| App/API Gateway | `http://localhost:3000` |
-| Auth Service | `http://localhost:3001` |
-| Core Service | `http://localhost:3002` |
-| ms-linking | `http://localhost:3003` |
-| ms-notification | `http://localhost:3004` |
-| RabbitMQ Management | `http://localhost:15672` |
-
-Credenciais padrao do RabbitMQ: `admin` / `admin`.
-
-## Variaveis de ambiente
-
-Copie os exemplos antes de rodar localmente:
+### Linux / macOS
 
 ```bash
 cp .env.example .env
@@ -80,31 +94,97 @@ cp ms-scheduler/.env.example ms-scheduler/.env
 cp ms-notification/.env.example ms-notification/.env
 ```
 
-Chaves internas relevantes:
+---
 
-| Variavel | Uso |
-| --- | --- |
-| `MS_LINKING_API_KEY` | Chave usada pelo core-service para chamar o ms-linking |
-| `CORE_INTERNAL_API_KEY` | Chave exigida pelo core-service na rota interna de doses |
-| `MS_SCHEDULER_MAIN_API_KEY` | Chave enviada pelo ms-scheduler ao core-service |
-| `MS_NOTIFICATION_API_KEY` | Chave usada nas rotas REST do ms-notification |
+## 2. Iniciar os Microsserviços
 
-## Rodar o app Flutter no macOS
-
-Com o backend e microservicos no ar:
+Na raiz do projeto, execute:
 
 ```bash
-flutter run -d macos
+docker compose up --build -d ms-linking ms-scheduler ms-notification
 ```
 
-O app macOS usa `http://localhost:3000` como API base por padrao.
+---
 
-## Comandos uteis
+## 3. Iniciar a API Principal
+
+Acesse a pasta do backend:
+
+```bash
+cd backend
+docker compose up --build -d auth-service core-service gateway
+```
+
+---
+
+## 4. Executar o Aplicativo Flutter
+
+Retorne para a raiz do projeto:
+
+```bash
+cd ..
+flutter run
+```
+
+---
+
+# 🔌 Portas dos Serviços
+
+| Serviço             | Endereço               |
+| ------------------- | ---------------------- |
+| API Gateway         | http://localhost:3000  |
+| Auth-Service        | http://localhost:3001  |
+| Core-Service        | http://localhost:3002  |
+| ms-linking          | http://localhost:3003  |
+| ms-notification     | http://localhost:3004  |
+| RabbitMQ Management | http://localhost:15672 |
+
+**Credenciais RabbitMQ**
+
+```text
+Usuário: admin
+Senha: admin
+```
+
+---
+
+# 📋 Comandos Úteis
+
+### Listar contêineres ativos
 
 ```bash
 docker ps
+```
+
+### Visualizar logs dos microsserviços
+
+```bash
 docker compose logs -f ms-linking
 docker compose logs -f ms-scheduler
 docker compose logs -f ms-notification
-cd backend && docker compose logs -f gateway core-service auth-service
 ```
+
+### Visualizar logs da API principal
+
+```bash
+cd backend
+docker compose logs -f gateway core-service auth-service
+```
+
+---
+
+# 📚 Tecnologias Utilizadas
+
+* Flutter
+* Dart
+* NestJS
+* Docker
+* RabbitMQ
+* PostgreSQL
+* REST API
+* MVVM
+* Factory Method
+
+---
+
+Desenvolvido para auxiliar usuários no gerenciamento de medicamentos, lembretes e cuidados com dependentes de forma prática, segura e eficiente.
