@@ -56,7 +56,7 @@ class ProfilePage extends ConsumerWidget {
                   AppSpacing.lg,
                   AppSpacing.md,
                   AppSpacing.lg,
-                  AppSpacing.huge + AppSpacing.md,
+                  AppSpacing.huge + AppSpacing.huge + AppSpacing.md,
                 ),
                 children: [
                   const Center(child: _Avatar()),
@@ -408,7 +408,7 @@ class _LogoutButton extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppRadius.pill),
       child: Container(
-        height: 50,
+        height: 42,
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -421,7 +421,7 @@ class _LogoutButton extends StatelessWidget {
             const Icon(Icons.logout, color: AppColors.error, size: 18),
             const SizedBox(width: 8),
             Text(
-              'Sair da Conta',
+              'Sair da conta',
               style: TextStyle(
                 color: AppColors.error,
                 fontSize: 15,

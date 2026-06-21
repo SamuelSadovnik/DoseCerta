@@ -86,7 +86,12 @@ class _DependentDetailPageState extends ConsumerState<DependentDetailPage> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: const FormAppBar(title: 'Pessoa cuidada'),
+      appBar: FormAppBar(
+        title: 'Pessoa cuidada',
+        onClose: () => Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(AppRoutes.home, (_) => false),
+      ),
       body: SafeArea(
         top: false,
         child: ListView(
