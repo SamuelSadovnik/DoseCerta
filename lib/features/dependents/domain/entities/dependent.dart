@@ -26,6 +26,8 @@ class Dependent {
     this.linkedAt,
     this.caregiverName,
     this.caregiverEmail,
+    this.healthInfo,
+    this.emergencyContacts = const [],
   });
 
   final String id;
@@ -47,6 +49,8 @@ class Dependent {
   final DateTime? linkedAt;
   final String? caregiverName;
   final String? caregiverEmail;
+  final Map<String, String>? healthInfo;
+  final List<Map<String, String>> emergencyContacts;
 
   bool get isLinked => linkedUserId != null;
 }

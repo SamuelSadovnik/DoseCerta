@@ -14,6 +14,8 @@ class DependentDto {
     this.linkedAt,
     this.caregiverName,
     this.caregiverEmail,
+    this.healthInfo,
+    this.emergencyContacts = const [],
   });
 
   factory DependentDto.fromJson(Map<String, dynamic> json) {
@@ -39,6 +41,8 @@ class DependentDto {
       linkedAt: linkedAtRaw == null ? null : DateTime.parse(linkedAtRaw),
       caregiverName: json['caregiverName'] as String?,
       caregiverEmail: json['caregiverEmail'] as String?,
+      healthInfo: _parseStringMap(json['healthInfo']),
+      emergencyContacts: _parseStringMapList(json['emergencyContacts']),
     );
   }
 
@@ -54,6 +58,8 @@ class DependentDto {
   final DateTime? linkedAt;
   final String? caregiverName;
   final String? caregiverEmail;
+  final Map<String, String>? healthInfo;
+  final List<Map<String, String>> emergencyContacts;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -68,6 +74,8 @@ class DependentDto {
     'linkedAt': linkedAt?.toIso8601String(),
     'caregiverName': caregiverName,
     'caregiverEmail': caregiverEmail,
+    'healthInfo': healthInfo,
+    'emergencyContacts': emergencyContacts,
   };
 
   Dependent toEntity() => Dependent(
@@ -83,5 +91,26 @@ class DependentDto {
     linkedAt: linkedAt,
     caregiverName: caregiverName,
     caregiverEmail: caregiverEmail,
+    healthInfo: healthInfo,
+    emergencyContacts: emergencyContacts,
   );
+
+  static Map<String, String>? _parseStringMap(Object? raw) {
+    if (raw is! Map) return null;
+    return raw.map(
+      (key, value) => MapEntry(key.toString(), value?.toString() ?? ''),
+    );
+  }
+
+  static List<Map<String, String>> _parseStringMapList(Object? raw) {
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map(
+          (item) => item.map(
+            (key, value) => MapEntry(key.toString(), value?.toString() ?? ''),
+          ),
+        )
+        .toList();
+  }
 }

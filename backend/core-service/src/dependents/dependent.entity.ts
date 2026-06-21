@@ -24,6 +24,12 @@ export class Dependent {
   @Column({ type: 'varchar', length: 60, nullable: true })
   relationship: string | null;
 
+  @Column({ name: 'health_info', type: 'jsonb', nullable: true })
+  healthInfo: Record<string, string> | null;
+
+  @Column({ name: 'emergency_contacts', type: 'jsonb', nullable: true })
+  emergencyContacts: Array<Record<string, string>> | null;
+
   @Column({ name: 'activation_code', length: 12 })
   activationCode: string;
 

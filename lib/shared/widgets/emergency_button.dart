@@ -4,9 +4,16 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
 
 class EmergencyButton extends StatelessWidget {
-  const EmergencyButton({super.key, required this.onPressed});
+  const EmergencyButton({
+    super.key,
+    required this.onPressed,
+    this.title = 'Emergência',
+    this.subtitle = 'Abrir ações de ajuda',
+  });
 
   final VoidCallback onPressed;
+  final String title;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -39,13 +46,13 @@ class EmergencyButton extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Emergência',
+                      title,
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 16,
@@ -55,7 +62,7 @@ class EmergencyButton extends StatelessWidget {
                     ),
                     SizedBox(height: 2),
                     Text(
-                      'Chamar Responsável',
+                      subtitle,
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 12,

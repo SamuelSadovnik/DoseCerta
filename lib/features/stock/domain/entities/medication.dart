@@ -1,5 +1,7 @@
 enum MedicationUnit { tablet, capsule, drop, ml }
 
+enum MedicationStatus { active, ended }
+
 extension MedicationUnitX on MedicationUnit {
   String get plural => switch (this) {
     MedicationUnit.tablet => 'comprimidos',
@@ -26,6 +28,7 @@ class Medication {
     required this.initialQuantity,
     required this.frequency,
     required this.durationDays,
+    this.status = MedicationStatus.active,
     this.dependentId,
   });
 
@@ -37,6 +40,7 @@ class Medication {
   final int initialQuantity;
   final String frequency;
   final int durationDays;
+  final MedicationStatus status;
   final String? dependentId;
 
   double get capacityRatio =>
@@ -45,4 +49,6 @@ class Medication {
   int get capacityPercent => (capacityRatio * 100).round().clamp(0, 100);
 
   bool get isCritical => capacityRatio < 0.2;
+
+  bool get isEnded => status == MedicationStatus.ended;
 }

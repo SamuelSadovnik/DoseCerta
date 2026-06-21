@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -13,21 +15,46 @@ import '../../../core/theme/theme_extensions.dart';
 import '../../../shared/widgets/app_top_bar.dart';
 import '../../../shared/widgets/dependent_context_selector.dart';
 import '../../../shared/widgets/dosecerta_bottom_nav.dart';
+import '../../../shared/widgets/empty_care_profiles_state.dart';
 import '../../auth/presentation/providers/auth_providers.dart';
 import '../../dependents/presentation/providers/dependent_providers.dart';
 import '../domain/entities/dose_schedule.dart';
 import '../domain/entities/home_data.dart';
 import 'providers/home_providers.dart';
 
-class HomePage extends ConsumerWidget {
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends ConsumerState<HomePage> {
+  Timer? _refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (!mounted) return;
+      ref.invalidate(homeDataProvider);
+      ref.invalidate(dependentsProvider);
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final homeAsync = ref.watch(homeDataProvider);
     final accountType = ref.watch(currentAccountTypeProvider);
     final user = ref.watch(currentUserProvider);
-    final selectedDependentId = ref.watch(selectedDependentIdProvider);
+    final selectedContext = ref.watch(selectedCareContextProvider);
+    final selectedDependentId = ref.watch(selectedCareDependentIdProvider);
     final dependentsAsync = ref.watch(dependentsProvider);
     final selectedDependentName = selectedDependentId == null
         ? null
@@ -38,6 +65,12 @@ class HomePage extends ConsumerWidget {
                 .firstOrNull,
             orElse: () => null,
           );
+    final caregiverDependentsCount = accountType == AccountType.caregiver
+        ? dependentsAsync.maybeWhen(
+            data: (deps) => deps.length,
+            orElse: () => null,
+          )
+        : null;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -55,7 +88,9 @@ class HomePage extends ConsumerWidget {
                   data: data,
                   accountType: accountType,
                   userName: user?.name,
+                  selectedContext: selectedContext,
                   selectedDependentName: selectedDependentName,
+                  caregiverDependentsCount: caregiverDependentsCount,
                 ),
               ),
             ),
@@ -90,13 +125,17 @@ class _HomeBody extends StatelessWidget {
     required this.data,
     required this.accountType,
     required this.userName,
+    required this.selectedContext,
     required this.selectedDependentName,
+    required this.caregiverDependentsCount,
   });
 
   final HomeData data;
   final AccountType accountType;
   final String? userName;
+  final CareContext selectedContext;
   final String? selectedDependentName;
+  final int? caregiverDependentsCount;
 
   @override
   Widget build(BuildContext context) {
@@ -108,9 +147,11 @@ class _HomeBody extends StatelessWidget {
     final firstName = (userName ?? '').split(' ').first;
     final greeting = _greetingFor(DateTime.now().hour);
     final isCaregiver = accountType == AccountType.caregiver;
-    final viewing = selectedDependentName == null
-        ? (isCaregiver ? 'Visualizando todos os dependentes' : null)
-        : 'Visualizando ${selectedDependentName!.split(' ').first}';
+    final viewing = _viewingText(isCaregiver);
+    final hasNoCareProfiles =
+        isCaregiver &&
+        caregiverDependentsCount != null &&
+        caregiverDependentsCount == 0;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -142,44 +183,54 @@ class _HomeBody extends StatelessWidget {
         ),
         if (isCaregiver) ...[
           const SizedBox(height: AppSpacing.md),
-          const DependentContextSelector(),
+          const DependentContextSelector(showSelf: true),
         ],
         const SizedBox(height: AppSpacing.lg),
-        Row(
-          children: [
-            Expanded(
-              child: _BentoCard(
-                icon: Icons.check_circle_outline,
-                iconBackground: AppColors.primaryLight,
-                iconColor: AppColors.primary,
-                value: '${data.dosesTakenToday}/${data.dosesTotalToday}',
-                label: 'Doses tomadas',
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm + 4),
-            Expanded(
-              child: _BentoCard(
-                icon: Icons.schedule,
-                iconBackground: AppColors.successLight,
-                iconColor: AppColors.success,
-                value: nextTime,
-                label: 'Próxima dose',
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        Text(
-          isCaregiver ? 'Agenda de doses' : 'Medicamentos de hoje',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: Theme.of(context).colorScheme.onSurface,
-            letterSpacing: -0.45,
+        if (hasNoCareProfiles) ...[
+          EmptyCareProfilesState(
+            message:
+                'Adicione alguém para acompanhar tratamentos, consultas, estoque e histórico. O convite por código é opcional.',
+            onPressed: () =>
+                Navigator.of(context).pushNamed(AppRoutes.newDependent),
           ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        ..._buildDoseItems(context),
+          const SizedBox(height: AppSpacing.lg),
+        ] else ...[
+          Row(
+            children: [
+              Expanded(
+                child: _BentoCard(
+                  icon: Icons.check_circle_outline,
+                  iconBackground: AppColors.primaryLight,
+                  iconColor: AppColors.primary,
+                  value: '${data.dosesTakenToday}/${data.dosesTotalToday}',
+                  label: 'Doses tomadas',
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm + 4),
+              Expanded(
+                child: _BentoCard(
+                  icon: Icons.schedule,
+                  iconBackground: AppColors.successLight,
+                  iconColor: AppColors.success,
+                  value: nextTime,
+                  label: 'Próxima dose',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Text(
+            isCaregiver ? 'Agenda de doses' : 'Medicamentos de hoje',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: Theme.of(context).colorScheme.onSurface,
+              letterSpacing: -0.45,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          ..._buildDoseItems(context),
+        ],
       ],
     );
   }
@@ -188,6 +239,17 @@ class _HomeBody extends StatelessWidget {
     if (hour < 12) return 'Bom dia';
     if (hour < 18) return 'Boa tarde';
     return 'Boa noite';
+  }
+
+  String? _viewingText(bool isCaregiver) {
+    if (!isCaregiver) return null;
+    return switch (selectedContext.type) {
+      CareContextType.self => 'Visualizando meus cuidados',
+      CareContextType.dependent =>
+        'Visualizando ${selectedDependentName?.split(' ').first ?? 'pessoa cuidada'}',
+      CareContextType.allDependents =>
+        'Visualizando tudo: meus cuidados e pessoas cuidadas',
+    };
   }
 
   List<Widget> _buildDoseItems(BuildContext context) {

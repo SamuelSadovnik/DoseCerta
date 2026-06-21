@@ -8,6 +8,9 @@ import 'core/routing/app_routes.dart';
 import 'core/storage/local_cache.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_controller.dart';
+import 'features/notifications/presentation/notification_listener.dart';
+
+final scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,6 +36,7 @@ class DoseCertaApp extends ConsumerWidget {
     return MaterialApp(
       title: 'DoseCerta',
       debugShowCheckedModeBanner: false,
+      scaffoldMessengerKey: scaffoldMessengerKey,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: themeMode,
@@ -45,6 +49,10 @@ class DoseCertaApp extends ConsumerWidget {
       ],
       supportedLocales: const [Locale('pt', 'BR')],
       locale: const Locale('pt', 'BR'),
+      builder: (context, child) => NotificationListenerShell(
+        scaffoldMessengerKey: scaffoldMessengerKey,
+        child: child ?? const SizedBox.shrink(),
+      ),
     );
   }
 }

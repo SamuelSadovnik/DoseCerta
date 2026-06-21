@@ -13,10 +13,12 @@ class HomeRepositoryImpl implements HomeRepository {
   Future<HomeData> loadHomeData({
     required AccountType accountType,
     String? dependentId,
+    bool selfOnly = false,
   }) async {
     final dtos = await _remote.getTodayDoses(
       accountType: accountType,
       dependentId: dependentId,
+      selfOnly: selfOnly,
     );
     final doses = dtos.map((d) => d.toEntity()).toList()
       ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));

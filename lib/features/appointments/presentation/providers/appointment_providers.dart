@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/cache/page_cache_policy.dart';
 import '../../../../core/providers/app_providers.dart';
+import '../../../dependents/presentation/providers/care_subject_provider.dart';
 import '../../data/datasources/appointment_remote_datasource.dart';
 import '../../data/repositories/appointment_repository_impl.dart';
 import '../../domain/entities/appointment.dart';
@@ -23,7 +24,17 @@ final appointmentRepositoryProvider = Provider<AppointmentRepository>((ref) {
 
 final appointmentsProvider = FutureProvider.autoDispose<List<Appointment>>((
   ref,
-) {
+) async {
   ref.cacheFor(PageCachePolicy.mainTabs);
-  return ref.watch(appointmentRepositoryProvider).getAll();
+  final dependentId = await ref.watch(
+    currentAppointmentDependentIdProvider.future,
+  );
+  return ref
+      .watch(appointmentRepositoryProvider)
+      .getAll(dependentId: dependentId);
 });
+
+final currentAppointmentDependentIdProvider =
+    FutureProvider.autoDispose<String?>((ref) async {
+      return ref.watch(currentCareSubjectDependentIdProvider.future);
+    });

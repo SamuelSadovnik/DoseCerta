@@ -57,6 +57,11 @@ services:
       DATABASE_NAME: ${POSTGRES_DB:-dosecerta}
       DATABASE_SCHEMA: core_db
       JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
+      LINKING_SERVICE_URL: ${LINKING_SERVICE_URL:-http://host.docker.internal:3003}
+      LINKING_SERVICE_API_KEY: ${LINKING_SERVICE_API_KEY:-dosecerta-internal-key-linking}
+      INTERNAL_API_KEY: ${CORE_INTERNAL_API_KEY:-dosecerta-internal-key-scheduler}
+      RABBITMQ_URL: ${CORE_RABBITMQ_URL:-amqp://admin:admin@host.docker.internal:5672}
+      APP_TIMEZONE_OFFSET_MINUTES: ${APP_TIMEZONE_OFFSET_MINUTES:--180}
     depends_on:
       postgres:
         condition: service_healthy

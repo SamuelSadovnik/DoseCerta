@@ -48,6 +48,7 @@ class AppRoutes {
   static const String profile = '/profile';
   static const String profileAdditionalInfo = '/profile/additional-info';
   static const String profileEmergencyContacts = '/profile/emergency-contacts';
+  static const String emergency = '/emergency';
   static const String profileNotifications = '/profile/notifications';
   static const String profilePrivacySecurity = '/profile/privacy-security';
   static const String profileTheme = '/profile/theme';
@@ -101,6 +102,8 @@ class AppRoutes {
         return _build(settings, const AdditionalInfoPage());
       case profileEmergencyContacts:
         return _build(settings, const EmergencyContactsPage());
+      case emergency:
+        return _build(settings, const EmergencyPage());
       case profileNotifications:
         return _build(settings, const NotificationsSettingsPage());
       case profilePrivacySecurity:
@@ -110,11 +113,17 @@ class AppRoutes {
       case profileAbout:
         return _build(settings, const AboutDoseCertaPage());
       case dependents:
-        return _build(settings, const DependentsListPage());
+        final args = settings.arguments is DependentsListArgs
+            ? settings.arguments as DependentsListArgs
+            : const DependentsListArgs();
+        return _build(settings, DependentsListPage(args: args));
       case newDependent:
         return _build(settings, const NewDependentPage());
       case dependentSuccess:
-        return _build(settings, const DependentSuccessPage());
+        final dependent = settings.arguments is Dependent
+            ? settings.arguments as Dependent
+            : null;
+        return _build(settings, DependentSuccessPage(dependent: dependent));
       case dependentDetail:
         final dep = settings.arguments as Dependent;
         return _build(settings, DependentDetailPage(dependent: dep));

@@ -35,7 +35,7 @@ class AccountTypePage extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'Qual o seu perfil?',
+                'Como você vai usar o DoseCerta?',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
@@ -45,9 +45,9 @@ class AccountTypePage extends StatelessWidget {
               const SizedBox(height: AppSpacing.xl),
               _ChoiceCard(
                 icon: Icons.person_outline,
-                title: 'Uso Pessoal',
+                title: 'Minha saúde',
                 description:
-                    'Gerencie seus próprios remédios, lembretes e estoque.',
+                    'Controle seus remédios, consultas, estoque e lembretes. Se receber um código, você pode vincular um responsável depois.',
                 onTap: () => Navigator.of(context).pushNamed(
                   AppRoutes.register,
                   arguments: AccountType.personal,
@@ -56,9 +56,9 @@ class AccountTypePage extends StatelessWidget {
               const SizedBox(height: AppSpacing.md),
               _ChoiceCard(
                 icon: Icons.family_restroom,
-                title: 'Responsável',
+                title: 'Cuidar de alguém',
                 description:
-                    'Cuide dos medicamentos de dependentes e familiares.',
+                    'Acompanhe medicamentos, consultas e histórico de uma pessoa cuidada. Ela não precisa ter conta própria.',
                 onTap: () => Navigator.of(context).pushNamed(
                   AppRoutes.register,
                   arguments: AccountType.caregiver,

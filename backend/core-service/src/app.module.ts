@@ -9,6 +9,7 @@ import { DosesModule } from './doses/doses.module';
 import { HistoryModule } from './history/history.module';
 import { AdminModule } from './admin/admin.module';
 import { HealthController } from './health/health.controller';
+import { MessagingModule } from './messaging/messaging.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { HealthController } from './health/health.controller';
     DosesModule,
     HistoryModule,
     AdminModule,
+    MessagingModule,
   ],
   controllers: [HealthController],
 })

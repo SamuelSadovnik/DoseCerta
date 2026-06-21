@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_error.dart';
 import '../../../../core/providers/selected_dependent_provider.dart';
+import '../../../dependents/presentation/providers/care_subject_provider.dart';
 import '../../../home/presentation/providers/home_providers.dart';
 import '../../../history/presentation/providers/history_providers.dart';
 import '../../domain/repositories/medication_repository.dart';
@@ -10,7 +11,11 @@ import 'new_medication_state.dart';
 
 class NewMedicationViewModel extends StateNotifier<NewMedicationState> {
   NewMedicationViewModel(this._repository, this._ref)
-    : super(const NewMedicationState());
+    : super(
+        NewMedicationState(
+          dependentId: _ref.read(selectedCareDependentIdProvider),
+        ),
+      );
 
   final MedicationRepository _repository;
   final Ref _ref;
@@ -25,8 +30,11 @@ class NewMedicationViewModel extends StateNotifier<NewMedicationState> {
       state = state.copyWith(duration: v, clearError: true);
   void onFrequencyChanged(String v) =>
       state = state.copyWith(frequency: v, clearError: true);
-  void onDependentChanged(String? id) =>
-      state = state.copyWith(dependentId: id, clearError: true);
+  void onDependentChanged(String? id) => state = state.copyWith(
+    dependentId: id,
+    clearDependent: id == null,
+    clearError: true,
+  );
 
   Future<void> submit() async {
     if (state.isLoading) return;
@@ -65,6 +73,9 @@ class NewMedicationViewModel extends StateNotifier<NewMedicationState> {
     }
     state = state.copyWith(isLoading: true, clearError: true);
     try {
+      final targetDependentId =
+          state.dependentId ??
+          await _ref.read(currentCareSubjectDependentIdProvider.future);
       await _repository.create(
         name: state.name.trim(),
         dosage: state.dosage.trim(),
@@ -72,14 +83,14 @@ class NewMedicationViewModel extends StateNotifier<NewMedicationState> {
         initialQuantity: quantity,
         frequency: state.frequency!,
         durationDays: duration,
-        dependentId: state.dependentId,
+        dependentId: targetDependentId,
       );
-      final createdForDependentId = state.dependentId;
+      final createdForDependentId = targetDependentId;
       _ref.invalidate(medicationsProvider);
       if (createdForDependentId != null) {
         _ref.invalidate(medicationsByDependentProvider(createdForDependentId));
-        _ref.read(selectedDependentIdProvider.notifier).state =
-            createdForDependentId;
+        _ref.read(selectedCareContextProvider.notifier).state =
+            CareContext.dependent(createdForDependentId);
       }
       _ref.invalidate(homeDataProvider);
       _ref.invalidate(historySummariesProvider);

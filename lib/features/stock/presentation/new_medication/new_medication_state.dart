@@ -37,6 +37,7 @@ class NewMedicationState {
     String? errorMessage,
     bool? success,
     bool clearError = false,
+    bool clearDependent = false,
   }) {
     return NewMedicationState(
       name: name ?? this.name,
@@ -45,7 +46,7 @@ class NewMedicationState {
       duration: duration ?? this.duration,
       frequency: frequency ?? this.frequency,
       unit: unit ?? this.unit,
-      dependentId: dependentId ?? this.dependentId,
+      dependentId: clearDependent ? null : (dependentId ?? this.dependentId),
       isLoading: isLoading ?? this.isLoading,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       success: success ?? this.success,

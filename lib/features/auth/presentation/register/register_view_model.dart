@@ -63,7 +63,11 @@ class RegisterViewModel extends StateNotifier<RegisterState> {
       );
       _ref.read(currentAccountTypeProvider.notifier).state =
           result.user.accountType;
-      _ref.read(selectedDependentIdProvider.notifier).state = null;
+      _ref
+          .read(selectedCareContextProvider.notifier)
+          .state = result.user.accountType == AccountType.caregiver
+          ? const CareContext.allDependents()
+          : const CareContext.self();
       _ref.invalidate(currentUserProvider);
       state = state.copyWith(isLoading: false, registerSuccess: true);
     } catch (e) {

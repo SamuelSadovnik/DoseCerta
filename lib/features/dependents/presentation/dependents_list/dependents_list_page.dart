@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,11 +13,45 @@ import '../../../../shared/widgets/primary_button.dart';
 import '../../domain/entities/dependent.dart';
 import '../providers/dependent_providers.dart';
 
-class DependentsListPage extends ConsumerWidget {
-  const DependentsListPage({super.key});
+enum DependentsEntryPoint { normal, onboarding }
+
+class DependentsListArgs {
+  const DependentsListArgs({this.entryPoint = DependentsEntryPoint.normal});
+
+  final DependentsEntryPoint entryPoint;
+}
+
+class DependentsListPage extends ConsumerStatefulWidget {
+  const DependentsListPage({super.key, this.args = const DependentsListArgs()});
+
+  final DependentsListArgs args;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DependentsListPage> createState() => _DependentsListPageState();
+}
+
+class _DependentsListPageState extends ConsumerState<DependentsListPage> {
+  Timer? _refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.invalidate(dependentsProvider);
+    });
+    _refreshTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) ref.invalidate(dependentsProvider);
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final async = ref.watch(dependentsProvider);
 
     return Scaffold(
@@ -25,6 +61,7 @@ class DependentsListPage extends ConsumerWidget {
           children: [
             AppTopBar(
               showBackButton: true,
+              onBack: () => _handleBack(context),
               trailing: Row(
                 children: [
                   Text(
@@ -47,7 +84,7 @@ class DependentsListPage extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'Dependentes',
+                      'Pessoas cuidadas',
                       style: TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.w800,
@@ -58,7 +95,7 @@ class DependentsListPage extends ConsumerWidget {
                     const HeroCard(
                       title: 'Cuidados Compartilhados',
                       subtitle:
-                          'Gerencie a saúde de quem você ama com precisão e carinho',
+                          'Acompanhe medicamentos, consultas e vínculos das pessoas sob seu cuidado.',
                       height: 160,
                     ),
                     const SizedBox(height: AppSpacing.md),
@@ -68,22 +105,44 @@ class DependentsListPage extends ConsumerWidget {
                             const Center(child: CircularProgressIndicator()),
                         error: (e, _) =>
                             Center(child: Text('Erro ao carregar: $e')),
-                        data: (deps) => ListView.separated(
-                          itemCount: deps.length,
-                          separatorBuilder: (_, _) =>
-                              Divider(height: 1, color: context.appDivider),
-                          itemBuilder: (_, i) => _DependentTile(
-                            dependent: deps[i],
-                            onTap: () => Navigator.of(context).pushNamed(
-                              AppRoutes.dependentDetail,
-                              arguments: deps[i],
+                        data: (deps) {
+                          if (deps.isEmpty) {
+                            return Center(
+                              child: Text(
+                                'Você ainda não cadastrou nenhuma pessoa cuidada.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            );
+                          }
+                          return ListView.separated(
+                            itemCount: deps.length,
+                            separatorBuilder: (_, _) =>
+                                Divider(height: 1, color: context.appDivider),
+                            itemBuilder: (_, i) => _DependentTile(
+                              dependent: deps[i],
+                              onTap: () async {
+                                await Navigator.of(context).pushNamed(
+                                  AppRoutes.dependentDetail,
+                                  arguments: deps[i],
+                                );
+                                if (context.mounted) {
+                                  ref.invalidate(dependentsProvider);
+                                }
+                              },
                             ),
-                          ),
-                        ),
+                          );
+                        },
                       ),
                     ),
                     PrimaryButton(
-                      label: 'Cadastrar Dependente',
+                      label: 'Adicionar pessoa cuidada',
                       trailingIcon: null,
                       leadingIcon: Icons.add,
                       onPressed: () => Navigator.of(
@@ -100,6 +159,20 @@ class DependentsListPage extends ConsumerWidget {
       ),
     );
   }
+
+  void _handleBack(BuildContext context) {
+    if (widget.args.entryPoint == DependentsEntryPoint.onboarding) {
+      Navigator.of(
+        context,
+      ).pushNamedAndRemoveUntil(AppRoutes.home, (_) => false);
+      return;
+    }
+    if (!Navigator.of(context).canPop()) {
+      Navigator.of(context).pushReplacementNamed(AppRoutes.home);
+      return;
+    }
+    Navigator.of(context).maybePop();
+  }
 }
 
 class _DependentTile extends StatelessWidget {
@@ -110,19 +183,7 @@ class _DependentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color statusColor;
-    IconData statusIcon;
-    switch (dependent.status) {
-      case DependentStatus.active:
-        statusColor = AppColors.success;
-        statusIcon = Icons.check_circle;
-      case DependentStatus.pendingConfirmation:
-        statusColor = AppColors.primary;
-        statusIcon = Icons.schedule;
-      case DependentStatus.overdue:
-        statusColor = AppColors.error;
-        statusIcon = Icons.error;
-    }
+    final status = _statusPresentation(dependent);
 
     final initial = dependent.name.isEmpty
         ? '?'
@@ -155,7 +216,7 @@ class _DependentTile extends StatelessWidget {
                     width: 14,
                     height: 14,
                     decoration: BoxDecoration(
-                      color: statusColor,
+                      color: status.color,
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: context.appBackground,
@@ -207,14 +268,14 @@ class _DependentTile extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(statusIcon, size: 12, color: statusColor),
+                      Icon(status.icon, size: 12, color: status.color),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          dependent.statusMessage ?? '',
+                          status.label,
                           style: TextStyle(
                             fontSize: 12,
-                            color: statusColor,
+                            color: status.color,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -230,4 +291,42 @@ class _DependentTile extends StatelessWidget {
       ),
     );
   }
+
+  _DependentStatusPresentation _statusPresentation(Dependent dependent) {
+    if (dependent.isLinked) {
+      return _DependentStatusPresentation(
+        icon: Icons.verified_user,
+        color: AppColors.success,
+        label: 'Vínculo ativo',
+      );
+    }
+
+    return switch (dependent.status) {
+      DependentStatus.active ||
+      DependentStatus.pendingConfirmation => _DependentStatusPresentation(
+        icon: Icons.schedule,
+        color: AppColors.primary,
+        label: dependent.activationCode == null
+            ? 'Aguardando código de vínculo'
+            : 'Convite disponível',
+      ),
+      DependentStatus.overdue => _DependentStatusPresentation(
+        icon: Icons.error,
+        color: AppColors.error,
+        label: 'Código expirado',
+      ),
+    };
+  }
+}
+
+class _DependentStatusPresentation {
+  const _DependentStatusPresentation({
+    required this.icon,
+    required this.color,
+    required this.label,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String label;
 }

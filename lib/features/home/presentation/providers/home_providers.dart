@@ -1,10 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/cache/page_cache_policy.dart';
-import '../../../../core/enums/account_type.dart';
 import '../../../../core/providers/account_type_provider.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/providers/selected_dependent_provider.dart';
+import '../../../dependents/presentation/providers/care_subject_provider.dart';
 import '../../data/datasources/home_remote_datasource.dart';
 import '../../data/repositories/home_repository_impl.dart';
 import '../../domain/entities/home_data.dart';
@@ -21,14 +21,18 @@ final homeRepositoryProvider = Provider<HomeRepository>((ref) {
   return HomeRepositoryImpl(ref.watch(homeRemoteDatasourceProvider));
 });
 
-final homeDataProvider = FutureProvider.autoDispose<HomeData>((ref) {
+final homeDataProvider = FutureProvider.autoDispose<HomeData>((ref) async {
   ref.cacheFor(PageCachePolicy.home);
   final accountType = ref.watch(currentAccountTypeProvider);
-  final selectedDependentId = ref.watch(selectedDependentIdProvider);
-  final dependentId = accountType == AccountType.caregiver
-      ? selectedDependentId
-      : null;
+  final selectedContext = ref.watch(selectedCareContextProvider);
+  final dependentId = await ref.watch(
+    currentCareSubjectDependentIdProvider.future,
+  );
   return ref
       .watch(homeRepositoryProvider)
-      .loadHomeData(accountType: accountType, dependentId: dependentId);
+      .loadHomeData(
+        accountType: accountType,
+        dependentId: dependentId,
+        selfOnly: selectedContext.type == CareContextType.self,
+      );
 });

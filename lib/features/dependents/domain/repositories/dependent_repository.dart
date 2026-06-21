@@ -11,6 +11,14 @@ abstract class DependentRepository {
 
   Future<Dependent> link({required String code});
 
+  Future<Dependent> regenerateActivationCode(String id);
+
+  Future<Dependent> updateCareProfile({
+    required String id,
+    Map<String, String>? healthInfo,
+    List<Map<String, String>>? emergencyContacts,
+  });
+
   Future<void> unlink();
 
   Future<void> delete(String id);

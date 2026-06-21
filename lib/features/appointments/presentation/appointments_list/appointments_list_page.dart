@@ -1,17 +1,23 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/enums/account_type.dart';
 import '../../../../core/providers/account_type_provider.dart';
+import '../../../../core/providers/selected_dependent_provider.dart';
 import '../../../../core/routing/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/theme_extensions.dart';
 import '../../../../shared/widgets/app_top_bar.dart';
+import '../../../../shared/widgets/dependent_context_selector.dart';
 import '../../../../shared/widgets/dosecerta_bottom_nav.dart';
+import '../../../../shared/widgets/empty_care_profiles_state.dart';
 import '../../../../shared/widgets/primary_button.dart';
+import '../../../dependents/presentation/providers/dependent_providers.dart';
 import '../../domain/entities/appointment.dart';
 import '../providers/appointment_providers.dart';
 
@@ -24,15 +30,53 @@ class AppointmentsListPage extends ConsumerStatefulWidget {
 }
 
 class _AppointmentsListPageState extends ConsumerState<AppointmentsListPage> {
+  Timer? _refreshTimer;
   String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (!mounted) return;
+      ref.invalidate(appointmentsProvider);
+      ref.invalidate(dependentsProvider);
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(appointmentsProvider);
     final accountType = ref.watch(currentAccountTypeProvider);
-    final title = accountType == AccountType.personal
-        ? 'Minhas consultas'
-        : 'Consultas';
+    final selectedDependentId = ref.watch(selectedCareDependentIdProvider);
+    final dependentsAsync = ref.watch(dependentsProvider);
+    final caregiverDependentsCount = accountType == AccountType.caregiver
+        ? dependentsAsync.maybeWhen(
+            data: (deps) => deps.length,
+            orElse: () => null,
+          )
+        : null;
+    final hasNoCareProfiles =
+        accountType == AccountType.caregiver &&
+        caregiverDependentsCount != null &&
+        caregiverDependentsCount == 0;
+    final selectedDependentName = selectedDependentId == null
+        ? null
+        : dependentsAsync.maybeWhen(
+            data: (deps) {
+              for (final dependent in deps) {
+                if (dependent.id == selectedDependentId) return dependent.name;
+              }
+              return null;
+            },
+            orElse: () => null,
+          );
+    final title = _titleFor(accountType, selectedDependentName);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -60,58 +104,78 @@ class _AppointmentsListPageState extends ConsumerState<AppointmentsListPage> {
                       ),
                     ),
                     const SizedBox(height: AppSpacing.sm),
-                    _SearchField(onChanged: (v) => setState(() => _query = v)),
-                    const SizedBox(height: AppSpacing.sm),
-                    Expanded(
-                      child: async.when(
-                        loading: () =>
-                            const Center(child: CircularProgressIndicator()),
-                        error: (e, _) =>
-                            Center(child: Text('Erro ao carregar: $e')),
-                        data: (list) {
-                          final filtered = _filter(list);
-                          if (filtered.isEmpty) {
-                            return Center(
-                              child: Text(
-                                'Nenhuma consulta encontrada.',
-                                style: TextStyle(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                  fontSize: 14,
+                    if (accountType == AccountType.caregiver &&
+                        !hasNoCareProfiles) ...[
+                      const DependentContextSelector(),
+                      const SizedBox(height: AppSpacing.sm),
+                    ],
+                    if (hasNoCareProfiles) ...[
+                      const SizedBox(height: AppSpacing.lg),
+                      EmptyCareProfilesState(
+                        message:
+                            'Adicione alguém para acompanhar consultas e rotina de cuidado. O convite por código é opcional.',
+                        onPressed: () => Navigator.of(
+                          context,
+                        ).pushNamed(AppRoutes.newDependent),
+                      ),
+                      const Spacer(),
+                    ] else ...[
+                      _SearchField(
+                        onChanged: (v) => setState(() => _query = v),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Expanded(
+                        child: async.when(
+                          loading: () =>
+                              const Center(child: CircularProgressIndicator()),
+                          error: (e, _) =>
+                              Center(child: Text('Erro ao carregar: $e')),
+                          data: (list) {
+                            final filtered = _filter(list);
+                            if (filtered.isEmpty) {
+                              return Center(
+                                child: Text(
+                                  'Nenhuma consulta encontrada.',
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              );
+                            }
+                            return ListView.separated(
+                              itemCount: filtered.length,
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(height: AppSpacing.sm + 4),
+                              itemBuilder: (_, i) => _AppointmentCard(
+                                appointment: filtered[i],
+                                showDependent:
+                                    accountType == AccountType.caregiver &&
+                                    selectedDependentId == null,
+                                onTap: () => Navigator.of(context).pushNamed(
+                                  AppRoutes.alertAppointment,
+                                  arguments: filtered[i],
                                 ),
                               ),
                             );
-                          }
-                          return ListView.separated(
-                            itemCount: filtered.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(height: AppSpacing.sm + 4),
-                            itemBuilder: (_, i) => _AppointmentCard(
-                              appointment: filtered[i],
-                              showDependent:
-                                  accountType == AccountType.caregiver,
-                              onTap: () => Navigator.of(context).pushNamed(
-                                AppRoutes.alertAppointment,
-                                arguments: filtered[i],
-                              ),
-                            ),
-                          );
-                        },
+                          },
+                        ),
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: PrimaryButton(
-                        label: 'Nova consulta',
-                        trailingIcon: null,
-                        leadingIcon: Icons.add,
-                        size: PrimaryButtonSize.medium,
-                        onPressed: () => Navigator.of(
-                          context,
-                        ).pushNamed(AppRoutes.newAppointment),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: PrimaryButton(
+                          label: 'Nova consulta',
+                          trailingIcon: null,
+                          leadingIcon: Icons.add,
+                          size: PrimaryButtonSize.medium,
+                          onPressed: () => Navigator.of(
+                            context,
+                          ).pushNamed(AppRoutes.newAppointment),
+                        ),
                       ),
-                    ),
+                    ],
                     const SizedBox(height: AppSpacing.huge + AppSpacing.xl),
                   ],
                 ),
@@ -125,6 +189,14 @@ class _AppointmentsListPageState extends ConsumerState<AppointmentsListPage> {
         onTap: (index) => _navigate(context, index),
       ),
     );
+  }
+
+  String _titleFor(AccountType accountType, String? dependentName) {
+    if (accountType == AccountType.personal) return 'Minhas consultas';
+    if (dependentName != null) {
+      return 'Consultas de ${dependentName.split(' ').first}';
+    }
+    return 'Consultas';
   }
 
   List<Appointment> _filter(List<Appointment> list) {

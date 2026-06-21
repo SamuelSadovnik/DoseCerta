@@ -34,6 +34,13 @@ class ProfilePage extends ConsumerWidget {
             orElse: () => null,
           )
         : null;
+    final responsibleText = accountType == AccountType.personal
+        ? dependentsAsync.when(
+            data: (_) => linkedDependent?.caregiverName ?? 'Vincular',
+            loading: () => 'Verificando...',
+            error: (_, _) => 'Atualizar',
+          )
+        : null;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -49,7 +56,7 @@ class ProfilePage extends ConsumerWidget {
                   AppSpacing.lg,
                   AppSpacing.md,
                   AppSpacing.lg,
-                  AppSpacing.huge + AppSpacing.md,
+                  AppSpacing.huge + AppSpacing.huge + AppSpacing.md,
                 ),
                 children: [
                   const Center(child: _Avatar()),
@@ -83,22 +90,30 @@ class ProfilePage extends ConsumerWidget {
                     children: [
                       _ProfileItem(
                         icon: Icons.medical_services_outlined,
-                        label: 'Informações adicionais',
+                        label: 'Cartão de Saúde',
                         onTap: () => Navigator.of(
                           context,
                         ).pushNamed(AppRoutes.profileAdditionalInfo),
                       ),
                       _ProfileItem(
                         icon: Icons.contact_emergency_outlined,
-                        label: 'Contatos de emergência',
+                        label: 'Rede de emergência',
                         onTap: () => Navigator.of(
                           context,
                         ).pushNamed(AppRoutes.profileEmergencyContacts),
                       ),
+                      _ProfileItem(
+                        icon: Icons.emergency_share_outlined,
+                        label: 'Botão de emergência',
+                        trailingText: 'SOS',
+                        onTap: () => Navigator.of(
+                          context,
+                        ).pushNamed(AppRoutes.emergency),
+                      ),
                       if (accountType == AccountType.caregiver)
                         _ProfileItem(
                           icon: Icons.family_restroom,
-                          label: 'Dependentes',
+                          label: 'Pessoas cuidadas',
                           badge: dependentsAsync.maybeWhen(
                             data: (deps) => deps.isEmpty
                                 ? null
@@ -115,8 +130,7 @@ class ProfilePage extends ConsumerWidget {
                               ? Icons.link
                               : Icons.verified_user_outlined,
                           label: 'Responsável',
-                          trailingText:
-                              linkedDependent?.caregiverName ?? 'Vincular',
+                          trailingText: responsibleText,
                           onTap: () => Navigator.of(
                             context,
                           ).pushNamed(AppRoutes.linkDependent),
@@ -164,8 +178,8 @@ class ProfilePage extends ConsumerWidget {
                   _LogoutButton(
                     onTap: () async {
                       await ref.read(authRepositoryProvider).logout();
-                      ref.read(selectedDependentIdProvider.notifier).state =
-                          null;
+                      ref.read(selectedCareContextProvider.notifier).state =
+                          const CareContext.allDependents();
                       ref.read(currentAccountTypeProvider.notifier).state =
                           AccountType.personal;
                       ref.invalidate(currentUserProvider);
@@ -394,7 +408,7 @@ class _LogoutButton extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppRadius.pill),
       child: Container(
-        height: 50,
+        height: 42,
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -407,7 +421,7 @@ class _LogoutButton extends StatelessWidget {
             const Icon(Icons.logout, color: AppColors.error, size: 18),
             const SizedBox(width: 8),
             Text(
-              'Sair da Conta',
+              'Sair da conta',
               style: TextStyle(
                 color: AppColors.error,
                 fontSize: 15,

@@ -28,6 +28,7 @@ class HistorySummary {
     required this.dosesMissed,
     required this.days,
     required this.missedDoses,
+    required this.treatments,
     this.dependentId,
     this.dependentName,
     this.dependentAvatarUrl,
@@ -38,7 +39,32 @@ class HistorySummary {
   final int dosesMissed;
   final List<HistoryDay> days;
   final List<MissedDose> missedDoses;
+  final List<TreatmentHistory> treatments;
   final String? dependentId;
   final String? dependentName;
   final String? dependentAvatarUrl;
+}
+
+class TreatmentHistory {
+  const TreatmentHistory({
+    required this.medicationId,
+    required this.medicationName,
+    required this.dosage,
+    required this.dosesTaken,
+    required this.dosesExpected,
+    required this.dosesMissed,
+    required this.adherencePercent,
+    this.lastDoseAt,
+    this.lastStatus,
+  });
+
+  final String medicationId;
+  final String medicationName;
+  final String dosage;
+  final int dosesTaken;
+  final int dosesExpected;
+  final int dosesMissed;
+  final int adherencePercent;
+  final DateTime? lastDoseAt;
+  final String? lastStatus;
 }

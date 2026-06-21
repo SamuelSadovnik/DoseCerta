@@ -22,6 +22,14 @@ abstract class DependentRemoteDatasource {
 
   Future<DependentDto> link({required String code});
 
+  Future<DependentDto> regenerateActivationCode(String id);
+
+  Future<DependentDto> updateCareProfile({
+    required String id,
+    Map<String, String>? healthInfo,
+    List<Map<String, String>>? emergencyContacts,
+  });
+
   Future<void> unlink();
 
   Future<void> delete(String id);
@@ -61,6 +69,30 @@ class _HttpDependentRemoteDatasource implements DependentRemoteDatasource {
     final res = await _dio.post<Map<String, dynamic>>(
       '/dependents/link',
       data: {'code': code},
+    );
+    return DependentDto.fromJson(res.data!);
+  }
+
+  @override
+  Future<DependentDto> regenerateActivationCode(String id) async {
+    final res = await _dio.post<Map<String, dynamic>>('/dependents/$id/code');
+    return DependentDto.fromJson(res.data!);
+  }
+
+  @override
+  Future<DependentDto> updateCareProfile({
+    required String id,
+    Map<String, String>? healthInfo,
+    List<Map<String, String>>? emergencyContacts,
+  }) async {
+    final data = <String, dynamic>{};
+    if (healthInfo != null) data['healthInfo'] = healthInfo;
+    if (emergencyContacts != null) {
+      data['emergencyContacts'] = emergencyContacts;
+    }
+    final res = await _dio.patch<Map<String, dynamic>>(
+      '/dependents/$id/care-profile',
+      data: data,
     );
     return DependentDto.fromJson(res.data!);
   }
@@ -141,6 +173,40 @@ class _MockDependentRemoteDatasource implements DependentRemoteDatasource {
       activationCode: code,
       linkedUserId: 'mock-user',
       linkedAt: DateTime.now(),
+    );
+  }
+
+  @override
+  Future<DependentDto> regenerateActivationCode(String id) async {
+    await Future<void>.delayed(Duration(milliseconds: 400));
+    return DependentDto(
+      id: id,
+      name: 'Pessoa cuidada',
+      relationship: RelationshipType.other,
+      status: DependentStatus.pendingConfirmation,
+      statusMessage: 'Aguardando confirmação',
+      activationCode: DateTime.now().millisecondsSinceEpoch
+          .toRadixString(36)
+          .toUpperCase()
+          .padLeft(8, '0')
+          .substring(0, 8),
+    );
+  }
+
+  @override
+  Future<DependentDto> updateCareProfile({
+    required String id,
+    Map<String, String>? healthInfo,
+    List<Map<String, String>>? emergencyContacts,
+  }) async {
+    await Future<void>.delayed(Duration(milliseconds: 300));
+    return DependentDto(
+      id: id,
+      name: 'Pessoa cuidada',
+      relationship: RelationshipType.other,
+      status: DependentStatus.active,
+      healthInfo: healthInfo,
+      emergencyContacts: emergencyContacts ?? const [],
     );
   }
 

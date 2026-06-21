@@ -5,11 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, In, MoreThan, Repository } from 'typeorm';
+import { Between, In, IsNull, MoreThan, Repository } from 'typeorm';
 import { Dose } from './dose.entity';
 import { Medication } from '../medications/medication.entity';
 import { Dependent } from '../dependents/dependent.entity';
 import { calculateDoseCount, parseFrequencyHours } from './dose-frequency';
+import { RabbitMQPublisherService } from '../messaging/rabbitmq-publisher.service';
 
 @Injectable()
 export class DosesService {
@@ -20,6 +21,7 @@ export class DosesService {
     private readonly medsRepo: Repository<Medication>,
     @InjectRepository(Dependent)
     private readonly dependentsRepo: Repository<Dependent>,
+    private readonly events: RabbitMQPublisherService,
   ) {}
 
   /**
@@ -56,18 +58,22 @@ export class DosesService {
     userId: string,
     accountType: string,
     dependentId?: string,
+    scope?: string,
   ): Promise<Dose[]> {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 1);
+    const { start, endInclusive } = this.currentLocalDayRange();
     if (dependentId) {
       await this.findAccessibleDependent(userId, dependentId);
     }
     const doses = await this.repo.find({
-      where: await this.buildDoseWhere(userId, accountType, dependentId, {
-        scheduledAt: Between(start, end),
-      }),
+      where: await this.buildDoseWhere(
+        userId,
+        accountType,
+        dependentId,
+        scope,
+        {
+          scheduledAt: Between(start, endInclusive),
+        },
+      ),
       order: { scheduledAt: 'ASC' },
     });
     return this.withDependentNames(doses);
@@ -77,19 +83,56 @@ export class DosesService {
     userId: string,
     accountType: string,
     dependentId?: string,
+    scope?: string,
   ): Promise<Dose[]> {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
+    const { start } = this.currentLocalDayRange();
     if (dependentId) {
       await this.findAccessibleDependent(userId, dependentId);
     }
     const doses = await this.repo.find({
-      where: await this.buildDoseWhere(userId, accountType, dependentId, {
-        scheduledAt: Between(start, new Date('9999-12-31T23:59:59.999Z')),
-      }),
+      where: await this.buildDoseWhere(
+        userId,
+        accountType,
+        dependentId,
+        scope,
+        {
+          scheduledAt: Between(start, new Date('9999-12-31T23:59:59.999Z')),
+        },
+      ),
       order: { scheduledAt: 'ASC' },
     });
     return this.withDependentNames(doses);
+  }
+
+  async pendingForScheduler(lookAheadMinutes: number): Promise<Dose[]> {
+    const now = new Date();
+    const start = new Date(now);
+    start.setDate(start.getDate() - 1);
+    const end = new Date(now);
+    end.setMinutes(end.getMinutes() + Math.max(1, lookAheadMinutes));
+
+    const doses = await this.repo.find({
+      where: {
+        status: In(['pending', 'postponed']),
+        scheduledAt: Between(start, end),
+      },
+      order: { scheduledAt: 'ASC' },
+    });
+
+    return this.withDependentNames(doses);
+  }
+
+  async removeFuturePendingForMedication(
+    userId: string,
+    medicationId: string,
+  ): Promise<void> {
+    const now = new Date();
+    await this.repo.delete({
+      userId,
+      medicationId,
+      scheduledAt: MoreThan(now),
+      status: In(['pending', 'postponed']),
+    });
   }
 
   async take(userId: string, id: string): Promise<Dose> {
@@ -109,7 +152,9 @@ export class DosesService {
       med.currentQuantity -= 1;
       await this.medsRepo.save(med);
     }
-    return this.repo.save(dose);
+    const saved = await this.repo.save(dose);
+    await this.publishDoseTaken(saved);
+    return saved;
   }
 
   async postpone(userId: string, id: string, minutes: number): Promise<Dose> {
@@ -139,7 +184,40 @@ export class DosesService {
     }
 
     await this.repo.save(futureDoses);
-    return this.repo.save(dose);
+    const saved = await this.repo.save(dose);
+    await this.publishDosePostponed(saved);
+    return saved;
+  }
+
+  private async publishDoseTaken(dose: Dose) {
+    const dependent = await this.findDependentForEvent(dose.dependentId);
+    this.events.publish('DoseTaken', 'dose.taken', {
+      doseId: dose.id,
+      userId: dose.userId,
+      dependentId: dose.dependentId,
+      dependentName: dependent?.name ?? null,
+      medicationName: dose.medicationName,
+      takenAt: dose.takenAt?.toISOString() ?? new Date().toISOString(),
+    });
+  }
+
+  private async publishDosePostponed(dose: Dose) {
+    const dependent = await this.findDependentForEvent(dose.dependentId);
+    this.events.publish('DosePostponed', 'dose.postponed', {
+      doseId: dose.id,
+      userId: dose.userId,
+      dependentId: dose.dependentId,
+      dependentName: dependent?.name ?? null,
+      medicationName: dose.medicationName,
+      postponedUntil: dose.scheduledAt.toISOString(),
+    });
+  }
+
+  private async findDependentForEvent(
+    dependentId: string | null,
+  ): Promise<Dependent | null> {
+    if (!dependentId) return null;
+    return this.dependentsRepo.findOne({ where: { id: dependentId } });
   }
 
   private async findOwned(userId: string, id: string): Promise<Dose> {
@@ -171,10 +249,14 @@ export class DosesService {
     userId: string,
     accountType: string,
     dependentId: string | undefined,
+    scope: string | undefined,
     extra: Record<string, unknown>,
   ) {
     if (dependentId) {
       return { dependentId, ...extra };
+    }
+    if (scope === 'self') {
+      return { userId, dependentId: IsNull(), ...extra };
     }
     if (accountType !== 'caregiver') {
       return { userId, ...extra };
@@ -197,6 +279,41 @@ export class DosesService {
     const result = new Date(value);
     result.setMinutes(result.getMinutes() + minutes);
     return result;
+  }
+
+  private currentLocalDayRange(): { start: Date; endInclusive: Date } {
+    const parts = this.localDateParts(new Date());
+    const start = this.localDateToUtc(parts.year, parts.monthIndex, parts.day);
+    const nextDay = this.localDateToUtc(
+      parts.year,
+      parts.monthIndex,
+      parts.day + 1,
+    );
+    return { start, endInclusive: new Date(nextDay.getTime() - 1) };
+  }
+
+  private localDateParts(date: Date): {
+    year: number;
+    monthIndex: number;
+    day: number;
+  } {
+    const shifted = new Date(date.getTime() + this.timezoneOffsetMs());
+    return {
+      year: shifted.getUTCFullYear(),
+      monthIndex: shifted.getUTCMonth(),
+      day: shifted.getUTCDate(),
+    };
+  }
+
+  private localDateToUtc(year: number, monthIndex: number, day: number): Date {
+    return new Date(
+      Date.UTC(year, monthIndex, day, 0, 0, 0, 0) - this.timezoneOffsetMs(),
+    );
+  }
+
+  private timezoneOffsetMs(): number {
+    const minutes = Number(process.env.APP_TIMEZONE_OFFSET_MINUTES ?? '-180');
+    return Number.isFinite(minutes) ? minutes * 60_000 : -180 * 60_000;
   }
 
   private async withDependentNames(doses: Dose[]): Promise<Dose[]> {

@@ -14,4 +14,13 @@ export class HistoryController {
   ) {
     return this.history.month(user.id, user.accountType, month, dependentId);
   }
+
+  @Get('day')
+  day(
+    @CurrentUser() user: RequestUser,
+    @Query('date') date: string,
+    @Query('dependentId') dependentId?: string,
+  ) {
+    return this.history.day(user.id, user.accountType, date, dependentId);
+  }
 }

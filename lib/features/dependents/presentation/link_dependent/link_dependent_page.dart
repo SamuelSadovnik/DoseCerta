@@ -44,11 +44,10 @@ class _LinkDependentPageState extends ConsumerState<LinkDependentPage> {
       _error = null;
     });
     try {
-      final dep = await ref
-          .read(dependentRepositoryProvider)
-          .link(code: code);
+      final dep = await ref.read(dependentRepositoryProvider).link(code: code);
       if (!mounted) return;
-      ref.read(selectedDependentIdProvider.notifier).state = null;
+      ref.read(selectedCareContextProvider.notifier).state =
+          const CareContext.allDependents();
       ref.invalidate(homeDataProvider);
       ref.invalidate(historySummariesProvider);
       ref.invalidate(medicationsProvider);
@@ -72,7 +71,8 @@ class _LinkDependentPageState extends ConsumerState<LinkDependentPage> {
     });
     try {
       await ref.read(dependentRepositoryProvider).unlink();
-      ref.read(selectedDependentIdProvider.notifier).state = null;
+      ref.read(selectedCareContextProvider.notifier).state =
+          const CareContext.allDependents();
       ref.invalidate(homeDataProvider);
       ref.invalidate(historySummariesProvider);
       ref.invalidate(medicationsProvider);
@@ -100,7 +100,7 @@ class _LinkDependentPageState extends ConsumerState<LinkDependentPage> {
     final dependentsAsync = ref.watch(dependentsProvider);
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: const FormAppBar(title: 'Vincular a um responsável'),
+      appBar: const FormAppBar(title: 'Vincular responsável'),
       body: SafeArea(
         top: false,
         child: dependentsAsync.when(
@@ -157,98 +157,98 @@ class _LinkForm extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryLight,
-                  borderRadius: BorderRadius.circular(AppRadius.lg),
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.primaryLight,
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  color: AppColors.primaryDark,
+                  size: 20,
                 ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Digite o código enviado pelo seu responsável. Sua conta continua sendo sua; o vínculo só permite que ele acompanhe doses, consultas e histórico.',
+                    style: TextStyle(
+                      fontSize: 13,
                       color: AppColors.primaryDark,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Peça o código a quem te cadastrou como dependente. Após vincular, você passa a marcar suas próprias doses.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.primaryDark,
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Padding(
-                padding: const EdgeInsets.only(left: 4, bottom: 8),
-                child: Text(
-                  'CÓDIGO DE ATIVAÇÃO',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.0,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
-              ),
-              TextField(
-                controller: controller,
-                textCapitalization: TextCapitalization.characters,
-                inputFormatters: [
-                  UpperCaseTextFormatter(),
-                  LengthLimitingTextInputFormatter(12),
-                ],
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 4,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'A7K9X2B1',
-                  filled: true,
-                  fillColor: Theme.of(context).cardColor,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 18,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.xl),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.xl),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.xl),
-                    borderSide: const BorderSide(
-                      color: AppColors.primary,
-                      width: 1.5,
+                      height: 1.4,
                     ),
                   ),
-                ),
-              ),
-              if (error != null) ...[
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  error!,
-                  style: TextStyle(color: AppColors.error, fontSize: 13),
                 ),
               ],
-              const SizedBox(height: AppSpacing.xl),
-              PrimaryButton(
-                label: 'Vincular',
-                isLoading: isLoading,
-                trailingIcon: Icons.link,
-                onPressed: onSubmit,
-              ),
-            ],
+            ),
           ),
+          const SizedBox(height: AppSpacing.lg),
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            child: Text(
+              'CÓDIGO DE CONVITE',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.0,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+          ),
+          TextField(
+            controller: controller,
+            textCapitalization: TextCapitalization.characters,
+            inputFormatters: [
+              UpperCaseTextFormatter(),
+              LengthLimitingTextInputFormatter(12),
+            ],
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 4,
+            ),
+            decoration: InputDecoration(
+              hintText: 'A7K9X2B1',
+              filled: true,
+              fillColor: Theme.of(context).cardColor,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 18,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppRadius.xl),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppRadius.xl),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppRadius.xl),
+                borderSide: const BorderSide(
+                  color: AppColors.primary,
+                  width: 1.5,
+                ),
+              ),
+            ),
+          ),
+          if (error != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              error!,
+              style: TextStyle(color: AppColors.error, fontSize: 13),
+            ),
+          ],
+          const SizedBox(height: AppSpacing.xl),
+          PrimaryButton(
+            label: 'Vincular',
+            isLoading: isLoading,
+            trailingIcon: Icons.link,
+            onPressed: onSubmit,
+          ),
+        ],
+      ),
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/enums/account_type.dart';
 import '../../../core/providers/account_type_provider.dart';
+import '../../../core/providers/selected_dependent_provider.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
@@ -12,6 +13,9 @@ import '../../../core/theme/theme_extensions.dart';
 import '../../../shared/widgets/app_top_bar.dart';
 import '../../../shared/widgets/dependent_context_selector.dart';
 import '../../../shared/widgets/dosecerta_bottom_nav.dart';
+import '../../../shared/widgets/empty_care_profiles_state.dart';
+import '../../dependents/presentation/providers/dependent_providers.dart';
+import '../domain/entities/day_dose_detail.dart';
 import '../domain/entities/history_summary.dart';
 import 'providers/history_providers.dart';
 
@@ -21,10 +25,34 @@ class HistoryPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final accountType = ref.watch(currentAccountTypeProvider);
+    final selectedDependentId = ref.watch(selectedCareDependentIdProvider);
+    final dependentsAsync = ref.watch(dependentsProvider);
     final month = ref.watch(selectedMonthProvider);
     final async = ref.watch(historySummariesProvider);
+    final caregiverDependentsCount = accountType == AccountType.caregiver
+        ? dependentsAsync.maybeWhen(
+            data: (deps) => deps.length,
+            orElse: () => null,
+          )
+        : null;
+    final hasNoCareProfiles =
+        accountType == AccountType.caregiver &&
+        caregiverDependentsCount != null &&
+        caregiverDependentsCount == 0;
 
+    final selectedDependentName = selectedDependentId == null
+        ? null
+        : dependentsAsync.maybeWhen(
+            data: (deps) {
+              for (final dependent in deps) {
+                if (dependent.id == selectedDependentId) return dependent.name;
+              }
+              return null;
+            },
+            orElse: () => null,
+          );
     final monthLabel = _capitalize(DateFormat('MMMM y', 'pt_BR').format(month));
+    final title = _titleFor(accountType, selectedDependentName);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -44,7 +72,7 @@ class HistoryPage extends ConsumerWidget {
                 ),
                 children: [
                   Text(
-                    'Histórico',
+                    title,
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
@@ -53,47 +81,61 @@ class HistoryPage extends ConsumerWidget {
                       height: 1.15,
                     ),
                   ),
-                  if (accountType == AccountType.caregiver) ...[
+                  if (accountType == AccountType.caregiver &&
+                      !hasNoCareProfiles) ...[
                     const SizedBox(height: AppSpacing.sm),
                     const DependentContextSelector(),
                   ],
-                  const SizedBox(height: AppSpacing.sm),
-                  _MonthSwitcher(
-                    label: monthLabel,
-                    onPrev: () =>
-                        ref.read(selectedMonthProvider.notifier).state =
-                            DateTime(month.year, month.month - 1),
-                    onNext: () =>
-                        ref.read(selectedMonthProvider.notifier).state =
-                            DateTime(month.year, month.month + 1),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  async.when(
-                    loading: () => const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 48),
-                      child: Center(child: CircularProgressIndicator()),
+                  if (hasNoCareProfiles) ...[
+                    const SizedBox(height: AppSpacing.lg),
+                    EmptyCareProfilesState(
+                      message:
+                          'Adicione alguém para acompanhar tratamentos, consultas, estoque e histórico. O convite por código é opcional.',
+                      onPressed: () => Navigator.of(
+                        context,
+                      ).pushNamed(AppRoutes.newDependent),
                     ),
-                    error: (e, _) =>
-                        Center(child: Text('Erro ao carregar: $e')),
-                    data: (summaries) {
-                      final calendarDays = summaries.isEmpty
-                          ? <HistoryDay>[]
-                          : summaries.first.days;
-                      return Column(
-                        children: [
-                          _Calendar(month: month, days: calendarDays),
-                          const SizedBox(height: AppSpacing.sm),
-                          if (accountType == AccountType.personal &&
-                              summaries.isNotEmpty)
-                            _PersonalStats(summary: summaries.first)
-                          else
-                            _CaregiverStatsStrip(summaries: summaries),
-                          const SizedBox(height: AppSpacing.sm),
-                          _MissedSection(summaries: summaries),
-                        ],
-                      );
-                    },
-                  ),
+                  ] else ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    _MonthSwitcher(
+                      label: monthLabel,
+                      onPrev: () =>
+                          ref.read(selectedMonthProvider.notifier).state =
+                              DateTime(month.year, month.month - 1),
+                      onNext: () =>
+                          ref.read(selectedMonthProvider.notifier).state =
+                              DateTime(month.year, month.month + 1),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    async.when(
+                      loading: () => const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 48),
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                      error: (e, _) =>
+                          Center(child: Text('Erro ao carregar: $e')),
+                      data: (summaries) {
+                        final calendarDays = _combinedCalendarDays(
+                          month,
+                          summaries,
+                        );
+                        return Column(
+                          children: [
+                            _Calendar(
+                              month: month,
+                              days: calendarDays,
+                              onDayTap: (day) =>
+                                  _showDayDetails(context, ref, day.date),
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                            _TreatmentSummarySection(
+                              treatments: _combinedTreatments(summaries),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -124,6 +166,328 @@ class HistoryPage extends ConsumerWidget {
 
   static String _capitalize(String s) =>
       s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
+  String _titleFor(AccountType accountType, String? dependentName) {
+    if (accountType == AccountType.personal) return 'Meu histórico';
+    if (dependentName != null) {
+      return 'Histórico de ${dependentName.split(' ').first}';
+    }
+    return 'Histórico';
+  }
+
+  List<HistoryDay> _combinedCalendarDays(
+    DateTime month,
+    List<HistorySummary> summaries,
+  ) {
+    if (summaries.isEmpty) {
+      final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
+      return [
+        for (var day = 1; day <= daysInMonth; day++)
+          HistoryDay(
+            date: DateTime(month.year, month.month, day),
+            status: DayStatus.none,
+          ),
+      ];
+    }
+
+    final first = summaries.first.days;
+    return [
+      for (var i = 0; i < first.length; i++)
+        HistoryDay(
+          date: first[i].date,
+          status: _mergeDayStatus(
+            summaries
+                .where((summary) => summary.days.length > i)
+                .map((summary) => summary.days[i].status)
+                .toList(),
+          ),
+        ),
+    ];
+  }
+
+  DayStatus _mergeDayStatus(List<DayStatus> statuses) {
+    if (statuses.any((status) => status == DayStatus.someMissed)) {
+      return DayStatus.someMissed;
+    }
+    if (statuses.any((status) => status == DayStatus.allTaken)) {
+      return DayStatus.allTaken;
+    }
+    return DayStatus.none;
+  }
+
+  List<TreatmentHistory> _combinedTreatments(List<HistorySummary> summaries) {
+    final grouped = <String, List<TreatmentHistory>>{};
+    for (final summary in summaries) {
+      for (final treatment in summary.treatments) {
+        final key = treatment.medicationId.isEmpty
+            ? '${treatment.medicationName}-${treatment.dosage}'
+            : treatment.medicationId;
+        grouped.putIfAbsent(key, () => []).add(treatment);
+      }
+    }
+
+    final combined = grouped.values.map((group) {
+      final first = group.first;
+      final dosesTaken = group.fold<int>(
+        0,
+        (total, treatment) => total + treatment.dosesTaken,
+      );
+      final dosesExpected = group.fold<int>(
+        0,
+        (total, treatment) => total + treatment.dosesExpected,
+      );
+      final dosesMissed = group.fold<int>(
+        0,
+        (total, treatment) => total + treatment.dosesMissed,
+      );
+      final lastDoseAt = group
+          .map((treatment) => treatment.lastDoseAt)
+          .whereType<DateTime>()
+          .fold<DateTime?>(
+            null,
+            (latest, current) =>
+                latest == null || current.isAfter(latest) ? current : latest,
+          );
+
+      return TreatmentHistory(
+        medicationId: first.medicationId,
+        medicationName: first.medicationName,
+        dosage: first.dosage,
+        dosesTaken: dosesTaken,
+        dosesExpected: dosesExpected,
+        dosesMissed: dosesMissed,
+        adherencePercent: dosesExpected == 0
+            ? 0
+            : ((dosesTaken / dosesExpected) * 100).round(),
+        lastDoseAt: lastDoseAt,
+        lastStatus: group.last.lastStatus,
+      );
+    }).toList();
+
+    combined.sort((a, b) {
+      final byMissed = b.dosesMissed.compareTo(a.dosesMissed);
+      if (byMissed != 0) return byMissed;
+      return a.medicationName.compareTo(b.medicationName);
+    });
+    return combined;
+  }
+
+  Future<void> _showDayDetails(
+    BuildContext context,
+    WidgetRef ref,
+    DateTime date,
+  ) async {
+    ref.read(selectedHistoryDayProvider.notifier).state = date;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (_) => const _DayDetailsSheet(),
+    );
+    ref.read(selectedHistoryDayProvider.notifier).state = null;
+  }
+}
+
+class _TreatmentSummarySection extends StatelessWidget {
+  const _TreatmentSummarySection({required this.treatments});
+
+  final List<TreatmentHistory> treatments;
+
+  @override
+  Widget build(BuildContext context) {
+    if (treatments.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+        child: Text(
+          'Nenhum tratamento com doses registradas neste mês.',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Resumo por tratamento',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        ...treatments
+            .take(6)
+            .map(
+              (treatment) => Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: _TreatmentHistoryTile(treatment: treatment),
+              ),
+            ),
+      ],
+    );
+  }
+}
+
+class _TreatmentHistoryTile extends StatelessWidget {
+  const _TreatmentHistoryTile({required this.treatment});
+
+  final TreatmentHistory treatment;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = treatment.dosesExpected == 0
+        ? 0.0
+        : treatment.dosesTaken / treatment.dosesExpected;
+    final lastDoseLabel = treatment.lastDoseAt == null
+        ? null
+        : DateFormat("dd/MM 'às' HH:mm", 'pt_BR').format(treatment.lastDoseAt!);
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.medication_liquid,
+                  color: AppColors.primary,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      treatment.medicationName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    Text(
+                      treatment.dosage,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '${treatment.adherencePercent}%',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: treatment.dosesMissed > 0
+                      ? AppColors.warning
+                      : AppColors.success,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+            child: LinearProgressIndicator(
+              value: progress.clamp(0, 1),
+              minHeight: 7,
+              backgroundColor: context.appDivider,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                treatment.dosesMissed > 0
+                    ? AppColors.warning
+                    : AppColors.success,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              _MetricChip(label: '${treatment.dosesTaken} tomadas'),
+              _MetricChip(label: '${treatment.dosesExpected} previstas'),
+              if (treatment.dosesMissed > 0)
+                _MetricChip(
+                  label: '${treatment.dosesMissed} perdidas',
+                  color: AppColors.error,
+                ),
+            ],
+          ),
+          if (lastDoseLabel != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Última dose registrada: $lastDoseLabel',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: context.appTextMuted,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricChip extends StatelessWidget {
+  const _MetricChip({required this.label, this.color});
+
+  final String label;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveColor = color ?? AppColors.primary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: effectiveColor.withValues(alpha: context.isDark ? 0.16 : 0.10),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          color: effectiveColor,
+        ),
+      ),
+    );
+  }
 }
 
 class _MonthSwitcher extends StatelessWidget {
@@ -198,10 +562,15 @@ class _RoundIcon extends StatelessWidget {
 }
 
 class _Calendar extends StatelessWidget {
-  const _Calendar({required this.month, required this.days});
+  const _Calendar({
+    required this.month,
+    required this.days,
+    required this.onDayTap,
+  });
 
   final DateTime month;
   final List<HistoryDay> days;
+  final ValueChanged<HistoryDay> onDayTap;
 
   @override
   Widget build(BuildContext context) {
@@ -260,7 +629,11 @@ class _Calendar extends StatelessWidget {
                     d.date.year == today.year &&
                     d.date.month == today.month &&
                     d.date.day == today.day;
-                return _CalendarCell(day: d, isToday: isToday);
+                return _CalendarCell(
+                  day: d,
+                  isToday: isToday,
+                  onTap: () => onDayTap(d),
+                );
               }),
             ],
           ),
@@ -271,10 +644,15 @@ class _Calendar extends StatelessWidget {
 }
 
 class _CalendarCell extends StatelessWidget {
-  const _CalendarCell({required this.day, required this.isToday});
+  const _CalendarCell({
+    required this.day,
+    required this.isToday,
+    required this.onTap,
+  });
 
   final HistoryDay day;
   final bool isToday;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -288,348 +666,225 @@ class _CalendarCell extends StatelessWidget {
         indicator = null;
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isToday
-            ? (context.isDark
-                  ? AppColors.primary.withValues(alpha: 0.28)
-                  : AppColors.primaryLight)
-            : null,
-        shape: BoxShape.circle,
-      ),
-      alignment: Alignment.center,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            '${day.date.day}',
-            style: TextStyle(
-              fontSize: 12,
-              color: day.status == DayStatus.none
-                  ? context.appTextMuted
-                  : context.appTextPrimary,
-              fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
-            ),
-          ),
-          if (indicator != null) SizedBox(height: 11, child: indicator),
-        ],
-      ),
-    );
-  }
-}
-
-class _PersonalStats extends StatelessWidget {
-  const _PersonalStats({required this.summary});
-
-  final HistorySummary summary;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _StatTile(
-            icon: Icons.done_all,
-            iconBackground: AppColors.successLight,
-            iconColor: AppColors.success,
-            value:
-                '${summary.dosesTaken.toString().padLeft(2, '0')}/${summary.dosesExpected.toString().padLeft(2, '0')}',
-            label: 'Doses tomadas',
-          ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadius.pill),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isToday
+              ? (context.isDark
+                    ? AppColors.primary.withValues(alpha: 0.28)
+                    : AppColors.primaryLight)
+              : null,
+          shape: BoxShape.circle,
         ),
-        const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: _StatTile(
-            icon: Icons.calendar_today_outlined,
-            iconBackground: AppColors.primaryLight,
-            iconColor: AppColors.error,
-            value: summary.dosesMissed.toString().padLeft(2, '0'),
-            label: 'Doses perdidas',
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _CaregiverStats extends StatelessWidget {
-  const _CaregiverStats({required this.summary, this.compactRow = false});
-
-  final HistorySummary summary;
-  final bool compactRow;
-
-  @override
-  Widget build(BuildContext context) {
-    final name = summary.dependentName ?? '—';
-    final initial = name.isEmpty ? '?' : name[0].toUpperCase();
-    return Row(
-      children: [
-        Column(
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircleAvatar(
-              radius: compactRow ? 18 : 22,
-              backgroundColor: AppColors.primaryLight,
-              child: Text(
-                initial,
-                style: TextStyle(
-                  color: AppColors.primaryDark,
-                  fontWeight: FontWeight.w700,
-                ),
+            Text(
+              '${day.date.day}',
+              style: TextStyle(
+                fontSize: 12,
+                color: day.status == DayStatus.none
+                    ? context.appTextMuted
+                    : context.appTextPrimary,
+                fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
               ),
             ),
-            const SizedBox(height: 4),
-            SizedBox(
-              width: 60,
-              child: Text(
-                name.split(' ').first,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 11,
-                  height: 1.1,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
+            if (indicator != null) SizedBox(height: 11, child: indicator),
           ],
         ),
-        const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: _StatTile(
-            compact: true,
-            icon: Icons.done_all,
-            iconBackground: AppColors.successLight,
-            iconColor: AppColors.success,
-            value:
-                '${summary.dosesTaken.toString().padLeft(2, '0')}/${summary.dosesExpected.toString().padLeft(2, '0')}',
-            label: 'Tomadas',
-          ),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: _StatTile(
-            compact: true,
-            icon: Icons.calendar_today_outlined,
-            iconBackground: AppColors.primaryLight,
-            iconColor: AppColors.error,
-            value: summary.dosesMissed.toString().padLeft(2, '0'),
-            label: 'Perdidas',
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _CaregiverStatsStrip extends StatelessWidget {
-  const _CaregiverStatsStrip({required this.summaries});
-
-  final List<HistorySummary> summaries;
-
-  @override
-  Widget build(BuildContext context) {
-    if (summaries.isEmpty) return const SizedBox.shrink();
-    return SizedBox(
-      height: 86,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: summaries.length,
-        separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
-        itemBuilder: (_, index) => SizedBox(
-          width: 220,
-          child: _CaregiverStats(summary: summaries[index], compactRow: true),
-        ),
       ),
     );
   }
 }
 
-class _StatTile extends StatelessWidget {
-  const _StatTile({
-    required this.icon,
-    required this.iconBackground,
-    required this.iconColor,
-    required this.value,
-    required this.label,
-    this.compact = false,
-  });
-
-  final IconData icon;
-  final Color iconBackground;
-  final Color iconColor;
-  final String value;
-  final String label;
-  final bool compact;
+class _DayDetailsSheet extends ConsumerWidget {
+  const _DayDetailsSheet();
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(compact ? 8 : 10),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(AppRadius.xl - 4),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: compact ? 24 : 28,
-            height: compact ? 24 : 28,
-            decoration: BoxDecoration(
-              color: iconBackground,
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: Icon(icon, color: iconColor, size: compact ? 14 : 16),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final date = ref.watch(selectedHistoryDayProvider) ?? DateTime.now();
+    final async = ref.watch(historyDayDetailsProvider);
+    final title = DateFormat("d 'de' MMMM", 'pt_BR').format(date);
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.76,
           ),
-          SizedBox(height: compact ? 4 : 6),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: compact ? 16 : 20,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.5,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: compact ? 11 : 12,
-              fontWeight: FontWeight.w500,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MissedSection extends StatelessWidget {
-  const _MissedSection({required this.summaries});
-
-  final List<HistorySummary> summaries;
-
-  @override
-  Widget build(BuildContext context) {
-    final missed = summaries.expand((s) => s.missedDoses).toList()
-      ..sort((a, b) => b.scheduledAt.compareTo(a.scheduledAt));
-    final titleStyle = TextStyle(
-      fontSize: 18,
-      fontWeight: FontWeight.w700,
-      letterSpacing: -0.45,
-      color: Theme.of(context).colorScheme.onSurface,
-    );
-    if (missed.isEmpty) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Doses não tomadas', style: titleStyle),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            'Nenhuma dose perdida neste período.',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Doses não tomadas', style: titleStyle),
-        const SizedBox(height: AppSpacing.sm),
-        ...missed.map((m) => _MissedItem(dose: m)),
-      ],
-    );
-  }
-}
-
-class _MissedItem extends StatelessWidget {
-  const _MissedItem({required this.dose});
-
-  final MissedDose dose;
-
-  @override
-  Widget build(BuildContext context) {
-    final date = DateFormat('dd/MM \'às\' HH:mm').format(dose.scheduledAt);
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: const Border(
-          left: BorderSide(color: AppColors.error, width: 4),
-        ),
-        boxShadow: context.isDark
-            ? const []
-            : const [
-                BoxShadow(
-                  color: Color(0x0A000000),
-                  blurRadius: 8,
-                  offset: Offset(0, 2),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: context.appDivider,
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                  ),
                 ),
-              ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                _capitalize(title),
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: Theme.of(context).colorScheme.onSurface,
+                  letterSpacing: -0.4,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Doses agendadas para este dia',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Flexible(
+                child: async.when(
+                  loading: () => const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+                  error: (_, _) => Center(
+                    child: Text(
+                      'Não foi possível carregar as doses deste dia.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  data: (doses) {
+                    if (doses.isEmpty) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 32),
+                          child: Text(
+                            'Nenhuma dose agendada neste dia.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+
+                    return ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: doses.length,
+                      separatorBuilder: (_, _) =>
+                          const SizedBox(height: AppSpacing.sm),
+                      itemBuilder: (_, index) =>
+                          _DayDoseTile(dose: doses[index]),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static String _capitalize(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+}
+
+class _DayDoseTile extends StatelessWidget {
+  const _DayDoseTile({required this.dose});
+
+  final DayDoseDetail dose;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveStatus = _effectiveStatus(dose);
+    final status = _statusPresentation(effectiveStatus);
+    final time = DateFormat('HH:mm').format(dose.scheduledAt);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: context.appSurfaceAlt,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 36,
-            height: 36,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(
-              color: AppColors.primaryLight,
+              color: status.color.withValues(
+                alpha: context.isDark ? 0.18 : 0.12,
+              ),
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
-            child: Icon(
-              Icons.medical_services,
-              color: AppColors.primary,
-              size: 18,
-            ),
+            child: Icon(status.icon, color: status.color, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${dose.medicationName} • ${dose.dosage}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                if (dose.dependentName != null) ...[
-                  Text(
-                    dose.dependentName!,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primary,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        dose.medicationName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                ],
+                    const SizedBox(width: 8),
+                    Text(
+                      time,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: context.appTextMuted,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
                 Text(
-                  date,
+                  '${dose.dosage} • ${status.label}',
                   style: TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
+                if (dose.dependentName != null) ...[
+                  const SizedBox(height: 6),
+                  _DependentChip(name: dose.dependentName!),
+                ],
               ],
             ),
           ),
@@ -637,4 +892,90 @@ class _MissedItem extends StatelessWidget {
       ),
     );
   }
+
+  DayDoseStatus _effectiveStatus(DayDoseDetail dose) {
+    if (dose.status == DayDoseStatus.pending &&
+        dose.scheduledAt.isBefore(DateTime.now())) {
+      return DayDoseStatus.missed;
+    }
+    return dose.status;
+  }
+
+  _DoseStatusPresentation _statusPresentation(DayDoseStatus status) {
+    return switch (status) {
+      DayDoseStatus.taken => _DoseStatusPresentation(
+        icon: Icons.check_circle,
+        color: AppColors.success,
+        label: 'Tomada',
+      ),
+      DayDoseStatus.missed => _DoseStatusPresentation(
+        icon: Icons.cancel,
+        color: AppColors.error,
+        label: 'Perdida',
+      ),
+      DayDoseStatus.postponed => _DoseStatusPresentation(
+        icon: Icons.schedule,
+        color: AppColors.warning,
+        label: 'Adiada',
+      ),
+      DayDoseStatus.pending => _DoseStatusPresentation(
+        icon: Icons.radio_button_unchecked,
+        color: AppColors.textMuted,
+        label: 'Pendente',
+      ),
+    };
+  }
+}
+
+class _DependentChip extends StatelessWidget {
+  const _DependentChip({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final initial = name.isEmpty ? '?' : name[0].toUpperCase();
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CircleAvatar(
+          radius: 10,
+          backgroundColor: AppColors.primaryLight,
+          child: Text(
+            initial,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              color: AppColors.primaryDark,
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppColors.primary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DoseStatusPresentation {
+  const _DoseStatusPresentation({
+    required this.icon,
+    required this.color,
+    required this.label,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String label;
 }

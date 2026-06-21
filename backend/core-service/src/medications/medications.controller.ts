@@ -5,12 +5,14 @@ import {
   Get,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
 import { MedicationsService } from './medications.service';
 import { CreateMedicationDto } from './dto/create-medication.dto';
 import { RefillMedicationDto } from './dto/refill-medication.dto';
+import { UpdateStockDto } from './dto/update-stock.dto';
 import { CurrentUser, RequestUser } from '../common/current-user.decorator';
 
 @Controller('medications')
@@ -22,7 +24,7 @@ export class MedicationsController {
     @CurrentUser() user: RequestUser,
     @Query('dependentId') dependentId?: string,
   ) {
-    return this.medications.list(user.id, dependentId);
+    return this.medications.list(user.id, user.accountType, dependentId);
   }
 
   @Post()
@@ -37,6 +39,23 @@ export class MedicationsController {
     @Body() dto: RefillMedicationDto,
   ) {
     return this.medications.refill(user.id, id, dto.quantity);
+  }
+
+  @Patch(':id/stock')
+  updateStock(
+    @CurrentUser() user: RequestUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateStockDto,
+  ) {
+    return this.medications.updateStock(user.id, id, dto.quantity);
+  }
+
+  @Patch(':id/end')
+  endTreatment(
+    @CurrentUser() user: RequestUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.medications.endTreatment(user.id, id);
   }
 
   @Delete(':id')

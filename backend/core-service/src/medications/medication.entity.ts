@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 
 export type MedicationUnit = 'tablet' | 'capsule' | 'drop' | 'ml' | 'mg' | 'other';
+export type MedicationStatus = 'active' | 'ended';
 
 @Entity({ name: 'medications' })
 export class Medication {
@@ -42,6 +43,9 @@ export class Medication {
 
   @Column({ name: 'duration_days', type: 'int' })
   durationDays: number;
+
+  @Column({ type: 'varchar', length: 20, default: 'active' })
+  status: MedicationStatus;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

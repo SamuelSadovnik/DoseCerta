@@ -24,19 +24,20 @@ class RegisterSuccessPage extends StatelessWidget {
     } else {
       buttons.add(
         FeedbackButton(
-          label: 'Cadastrar dependente',
+          label: 'Ir para Início',
           onPressed: () => Navigator.of(
             context,
-          ).pushReplacementNamed(AppRoutes.newDependent),
+          ).pushNamedAndRemoveUntil(AppRoutes.home, (_) => false),
         ),
       );
       buttons.add(
         FeedbackButton(
-          label: 'Ir para Início',
+          label: 'Adicionar pessoa cuidada',
           style: FeedbackButtonStyle.secondary,
-          onPressed: () => Navigator.of(
-            context,
-          ).pushNamedAndRemoveUntil(AppRoutes.home, (_) => false),
+          onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil(
+            AppRoutes.newDependent,
+            (route) => route.settings.name == AppRoutes.home,
+          ),
         ),
       );
     }
@@ -45,7 +46,9 @@ class RegisterSuccessPage extends StatelessWidget {
       config: FeedbackPageConfig(
         iconType: FeedbackIconType.successRed,
         title: 'Cadastro Realizado\ncom Sucesso!',
-        subtitle: 'Sua conta está pronta. Vamos cuidar dos seus medicamentos.',
+        subtitle: accountType == AccountType.personal
+            ? 'Sua conta está pronta. Vamos cuidar dos seus medicamentos.'
+            : 'Sua conta está pronta. Você pode adicionar uma pessoa cuidada agora ou começar pelo início.',
         buttons: buttons,
       ),
     );

@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Medication } from './medication.entity';
 import { CreateMedicationDto } from './dto/create-medication.dto';
 import { DosesService } from '../doses/doses.service';
@@ -22,11 +22,41 @@ export class MedicationsService {
     private readonly doses: DosesService,
   ) {}
 
-  async list(userId: string, dependentId?: string): Promise<Medication[]> {
+  async list(
+    userId: string,
+    accountType: string,
+    dependentId?: string,
+  ): Promise<Medication[]> {
     if (dependentId) {
       await this.findAccessibleDependent(userId, dependentId);
       return this.repo.find({
         where: { dependentId },
+        order: { createdAt: 'DESC' },
+      });
+    }
+
+    const linkedRegistries = await this.dependentsRepo.find({
+      where: { linkedUserId: userId },
+    });
+    if (accountType !== 'caregiver') {
+      const linkedIds = linkedRegistries.map((dependent) => dependent.id);
+      if (linkedIds.length === 0) {
+        return this.repo.find({
+          where: { userId },
+          order: { createdAt: 'DESC' },
+        });
+      }
+      return this.repo.find({
+        where: [{ userId }, { dependentId: In(linkedIds) }],
+        order: { createdAt: 'DESC' },
+      });
+    }
+
+    const ownedRegistries = await this.dependentsRepo.find({ where: { userId } });
+    const ownedIds = ownedRegistries.map((dependent) => dependent.id);
+    if (ownedIds.length > 0) {
+      return this.repo.find({
+        where: [{ userId }, { dependentId: In(ownedIds) }],
         order: { createdAt: 'DESC' },
       });
     }
@@ -63,6 +93,7 @@ export class MedicationsService {
       currentQuantity: dto.initialQuantity,
       frequency: dto.frequency,
       durationDays: dto.durationDays,
+      status: 'active',
     });
     const saved = await this.repo.save(med);
     await this.doses.generateForMedication(saved);
@@ -70,19 +101,55 @@ export class MedicationsService {
   }
 
   async refill(userId: string, id: string, quantity: number): Promise<Medication> {
-    const med = await this.findOwned(userId, id);
+    const med = await this.findAccessibleMedication(userId, id);
     med.currentQuantity += quantity;
+    if (med.currentQuantity > 0 && med.status !== 'ended') {
+      med.status = 'active';
+    }
     return this.repo.save(med);
   }
 
+  async updateStock(
+    userId: string,
+    id: string,
+    quantity: number,
+  ): Promise<Medication> {
+    const med = await this.findAccessibleMedication(userId, id);
+    med.currentQuantity = quantity;
+    if (quantity > 0 && med.status !== 'ended') {
+      med.status = 'active';
+    }
+    if (quantity > med.initialQuantity) {
+      med.initialQuantity = quantity;
+    }
+    return this.repo.save(med);
+  }
+
+  async endTreatment(userId: string, id: string): Promise<Medication> {
+    const med = await this.findAccessibleMedication(userId, id);
+    med.currentQuantity = 0;
+    med.status = 'ended';
+    const saved = await this.repo.save(med);
+    await this.doses.removeFuturePendingForMedication(med.userId, med.id);
+    return saved;
+  }
+
   async remove(userId: string, id: string): Promise<void> {
-    const med = await this.findOwned(userId, id);
+    const med = await this.findAccessibleMedication(userId, id);
     await this.repo.remove(med);
   }
 
-  private async findOwned(userId: string, id: string): Promise<Medication> {
-    const med = await this.repo.findOne({ where: { id, userId } });
+  private async findAccessibleMedication(
+    userId: string,
+    id: string,
+  ): Promise<Medication> {
+    const med = await this.repo.findOne({ where: { id } });
     if (!med) throw new NotFoundException('Medicamento não encontrado');
+    if (med.userId === userId) return med;
+    if (!med.dependentId) {
+      throw new ForbiddenException('Acesso negado ao medicamento');
+    }
+    await this.findAccessibleDependent(userId, med.dependentId);
     return med;
   }
 

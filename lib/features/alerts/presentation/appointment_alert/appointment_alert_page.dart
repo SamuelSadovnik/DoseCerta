@@ -30,9 +30,30 @@ class AppointmentAlertPage extends ConsumerWidget {
     final accountType = ref.watch(currentAccountTypeProvider);
     final isCaregiver = accountType == AccountType.caregiver;
     final isCompleted = appointment?.status == AppointmentStatus.completed;
+    final isCancelled = appointment?.status == AppointmentStatus.cancelled;
+    final isConfirmed = appointment?.status == AppointmentStatus.confirmed;
 
     if (state.actionTaken == AlertAction.confirmed) {
-      return _buildConfirmedFeedback(context, isCaregiver);
+      return _buildStatusFeedback(
+        context,
+        title: 'Consulta confirmada',
+        subtitle: 'A consulta foi marcada como confirmada.',
+      );
+    }
+    if (state.actionTaken == AlertAction.completed) {
+      return _buildStatusFeedback(
+        context,
+        title: 'Consulta concluída',
+        subtitle: 'Consulta marcada como realizada.',
+      );
+    }
+    if (state.actionTaken == AlertAction.cancelled) {
+      return _buildStatusFeedback(
+        context,
+        iconType: FeedbackIconType.error,
+        title: 'Consulta cancelada',
+        subtitle: 'Consulta removida da agenda ativa.',
+      );
     }
     if (state.actionTaken == AlertAction.rescheduled) {
       return _buildRescheduledFeedback(context, isCaregiver);
@@ -174,12 +195,45 @@ class AppointmentAlertPage extends ConsumerWidget {
                     ],
                   ),
                 )
+              else if (isCancelled)
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(AppRadius.lg),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.cancel, color: AppColors.error, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Consulta cancelada',
+                          style: TextStyle(
+                            color: AppColors.error,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
               else ...[
+                if (!isConfirmed) ...[
+                  PrimaryButton(
+                    label: 'Confirmar consulta',
+                    trailingIcon: Icons.event_available,
+                    isLoading: state.isLoading,
+                    onPressed: appointment == null ? null : vm.confirm,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                ],
                 PrimaryButton(
-                  label: 'Participei',
+                  label: 'Marcar como realizada',
                   trailingIcon: Icons.check_circle,
                   isLoading: state.isLoading,
-                  onPressed: appointment == null ? null : vm.confirm,
+                  onPressed: appointment == null ? null : vm.complete,
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 SecondaryButton(
@@ -192,6 +246,17 @@ class AppointmentAlertPage extends ConsumerWidget {
                           arguments: appointment,
                         ),
                 ),
+                const SizedBox(height: AppSpacing.sm),
+                TextButton.icon(
+                  onPressed: appointment == null || state.isLoading
+                      ? null
+                      : vm.cancel,
+                  icon: Icon(Icons.cancel_outlined, color: AppColors.error),
+                  label: Text(
+                    'Cancelar consulta',
+                    style: TextStyle(color: AppColors.error),
+                  ),
+                ),
               ],
             ],
           ),
@@ -200,33 +265,17 @@ class AppointmentAlertPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildConfirmedFeedback(BuildContext context, bool isCaregiver) {
-    if (isCaregiver) {
-      return FeedbackPage(
-        config: FeedbackPageConfig(
-          iconType: FeedbackIconType.successGreen,
-          title: 'Tudo certo!',
-          subtitle: 'Consulta marcada como realizada.',
-          buttons: [
-            FeedbackButton(
-              label: 'Voltar para o Início',
-              onPressed: () => Navigator.of(
-                context,
-              ).pushNamedAndRemoveUntil(AppRoutes.home, (_) => false),
-            ),
-          ],
-          showEmergencyButton: true,
-          onEmergency: () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Chamando responsável...')),
-          ),
-        ),
-      );
-    }
+  Widget _buildStatusFeedback(
+    BuildContext context, {
+    FeedbackIconType iconType = FeedbackIconType.successGreen,
+    required String title,
+    required String subtitle,
+  }) {
     return FeedbackPage(
       config: FeedbackPageConfig(
-        iconType: FeedbackIconType.successGreen,
-        title: 'Tudo certo!',
-        subtitle: 'Consulta marcada como realizada!',
+        iconType: iconType,
+        title: title,
+        subtitle: subtitle,
         buttons: [
           FeedbackButton(
             label: 'Voltar para Consultas',
@@ -236,9 +285,8 @@ class AppointmentAlertPage extends ConsumerWidget {
           ),
         ],
         showEmergencyButton: true,
-        onEmergency: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Chamando responsável...')),
-        ),
+        emergencySubtitle: 'Chamar responsável ou contato',
+        onEmergency: () => Navigator.of(context).pushNamed(AppRoutes.emergency),
       ),
     );
   }
@@ -260,9 +308,9 @@ class AppointmentAlertPage extends ConsumerWidget {
             ),
           ],
           showEmergencyButton: true,
-          onEmergency: () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Chamando responsável...')),
-          ),
+          emergencySubtitle: 'Chamar responsável ou contato',
+          onEmergency: () =>
+              Navigator.of(context).pushNamed(AppRoutes.emergency),
         ),
       );
     }
@@ -278,9 +326,8 @@ class AppointmentAlertPage extends ConsumerWidget {
           ),
         ],
         showEmergencyButton: true,
-        onEmergency: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Chamando responsável...')),
-        ),
+        emergencySubtitle: 'Chamar contato principal',
+        onEmergency: () => Navigator.of(context).pushNamed(AppRoutes.emergency),
       ),
     );
   }

@@ -38,6 +38,18 @@ class AppointmentRepositoryImpl implements AppointmentRepository {
   }
 
   @override
+  Future<Appointment> complete(String id) async {
+    final dto = await _remote.complete(id);
+    return dto.toEntity();
+  }
+
+  @override
+  Future<Appointment> cancel(String id) async {
+    final dto = await _remote.cancel(id);
+    return dto.toEntity();
+  }
+
+  @override
   Future<Appointment> reschedule({
     required String id,
     required String doctorName,

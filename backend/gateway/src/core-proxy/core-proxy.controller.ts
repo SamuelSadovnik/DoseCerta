@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -62,6 +63,29 @@ export class CoreProxyController {
     });
   }
 
+  @Patch('medications/:id/stock')
+  updateMedicationStock(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
+    return this.proxy.forward({
+      method: 'PATCH',
+      path: `medications/${id}/stock`,
+      user: req.user as ForwardUser,
+      body,
+    });
+  }
+
+  @Patch('medications/:id/end')
+  endMedicationTreatment(@Req() req: Request, @Param('id') id: string) {
+    return this.proxy.forward({
+      method: 'PATCH',
+      path: `medications/${id}/end`,
+      user: req.user as ForwardUser,
+    });
+  }
+
   @Delete('medications/:id')
   deleteMedication(@Req() req: Request, @Param('id') id: string) {
     return this.proxy.forward({
@@ -111,6 +135,32 @@ export class CoreProxyController {
     });
   }
 
+  @Post('dependents/:id/code')
+  regenerateDependentActivationCode(
+    @Req() req: Request,
+    @Param('id') id: string,
+  ) {
+    return this.proxy.forward({
+      method: 'POST',
+      path: `dependents/${id}/code`,
+      user: req.user as ForwardUser,
+    });
+  }
+
+  @Patch('dependents/:id/care-profile')
+  updateDependentCareProfile(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
+    return this.proxy.forward({
+      method: 'PATCH',
+      path: `dependents/${id}/care-profile`,
+      user: req.user as ForwardUser,
+      body,
+    });
+  }
+
   @Delete('dependents/:id')
   deleteDependent(@Req() req: Request, @Param('id') id: string) {
     return this.proxy.forward({
@@ -153,6 +203,24 @@ export class CoreProxyController {
     });
   }
 
+  @Post('appointments/:id/complete')
+  completeAppointment(@Req() req: Request, @Param('id') id: string) {
+    return this.proxy.forward({
+      method: 'POST',
+      path: `appointments/${id}/complete`,
+      user: req.user as ForwardUser,
+    });
+  }
+
+  @Post('appointments/:id/cancel')
+  cancelAppointment(@Req() req: Request, @Param('id') id: string) {
+    return this.proxy.forward({
+      method: 'POST',
+      path: `appointments/${id}/cancel`,
+      user: req.user as ForwardUser,
+    });
+  }
+
   @Post('appointments/:id/reschedule')
   rescheduleAppointment(
     @Req() req: Request,
@@ -181,12 +249,18 @@ export class CoreProxyController {
   dosesSchedule(
     @Req() req: Request,
     @Query('dependentId') dependentId?: string,
+    @Query('scope') scope?: string,
   ) {
+    const query = dependentId
+      ? { dependentId }
+      : scope === 'self'
+        ? { scope }
+        : undefined;
     return this.proxy.forward({
       method: 'GET',
       path: 'doses',
       user: req.user as ForwardUser,
-      query: dependentId ? { dependentId } : undefined,
+      query,
     });
   }
 
@@ -194,12 +268,18 @@ export class CoreProxyController {
   dosesToday(
     @Req() req: Request,
     @Query('dependentId') dependentId?: string,
+    @Query('scope') scope?: string,
   ) {
+    const query = dependentId
+      ? { dependentId }
+      : scope === 'self'
+        ? { scope }
+        : undefined;
     return this.proxy.forward({
       method: 'GET',
       path: 'doses/today',
       user: req.user as ForwardUser,
-      query: dependentId ? { dependentId } : undefined,
+      query,
     });
   }
 
@@ -227,6 +307,23 @@ export class CoreProxyController {
   }
 
   // ----- History -----
+  @Get('history/day')
+  historyDay(
+    @Req() req: Request,
+    @Query('date') date?: string,
+    @Query('dependentId') dependentId?: string,
+  ) {
+    return this.proxy.forward({
+      method: 'GET',
+      path: 'history/day',
+      user: req.user as ForwardUser,
+      query: {
+        ...(date ? { date } : {}),
+        ...(dependentId ? { dependentId } : {}),
+      },
+    });
+  }
+
   @Get('history')
   history(
     @Req() req: Request,
