@@ -6,7 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
 
 /// Hero banner DoseCerta — fundo `red-500`, raio 48, badge frosted opcional
-/// "SEGURANÇA & CUIDADO" (SKILL §8.4).
+/// "Segurança e cuidado" (SKILL §8.4).
 class HeroCard extends StatelessWidget {
   const HeroCard({
     super.key,

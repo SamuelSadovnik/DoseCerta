@@ -187,7 +187,7 @@ class _LinkForm extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(left: 4, bottom: 8),
             child: Text(
-              'CÓDIGO DE CONVITE',
+              'Código de convite',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
@@ -300,7 +300,7 @@ class _LinkedState extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Sua conta está vinculada ao responsável $_displayName. As doses e consultas criadas por ele aparecem na sua Home.',
+                      'Sua conta está vinculada ao responsável $_displayName. As doses e consultas criadas por ele aparecem na sua tela inicial.',
                       style: TextStyle(
                         fontSize: 13,
                         height: 1.4,

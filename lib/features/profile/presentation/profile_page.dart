@@ -90,7 +90,7 @@ class ProfilePage extends ConsumerWidget {
                     children: [
                       _ProfileItem(
                         icon: Icons.medical_services_outlined,
-                        label: 'Cartão de Saúde',
+                        label: 'Cartão de saúde',
                         onTap: () => Navigator.of(
                           context,
                         ).pushNamed(AppRoutes.profileAdditionalInfo),
@@ -152,7 +152,7 @@ class ProfilePage extends ConsumerWidget {
                       ),
                       _ProfileItem(
                         icon: Icons.shield_outlined,
-                        label: 'Privacidade & Segurança',
+                        label: 'Privacidade e segurança',
                         onTap: () => Navigator.of(
                           context,
                         ).pushNamed(AppRoutes.profilePrivacySecurity),

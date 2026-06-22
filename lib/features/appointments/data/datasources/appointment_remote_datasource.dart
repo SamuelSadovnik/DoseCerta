@@ -153,7 +153,7 @@ class _MockAppointmentRemoteDatasource implements AppointmentRemoteDatasource {
       AppointmentDto(
         id: 'a2',
         doctorName: 'Dr. Lucas Martins',
-        specialty: 'Clínico Geral',
+        specialty: 'Clínico geral',
         scheduledAt: DateTime(now.year, now.month, now.day - 7, 9, 0),
         location: 'Clínica Vida',
         status: AppointmentStatus.completed,

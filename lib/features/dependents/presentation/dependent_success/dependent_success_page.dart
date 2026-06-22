@@ -34,7 +34,7 @@ class DependentSuccessPage extends ConsumerWidget {
               },
             ),
           FeedbackButton(
-            label: 'Ir para Início',
+            label: 'Ir para início',
             style: dependent == null
                 ? FeedbackButtonStyle.primary
                 : FeedbackButtonStyle.secondary,

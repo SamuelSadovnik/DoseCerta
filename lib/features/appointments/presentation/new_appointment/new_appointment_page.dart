@@ -50,7 +50,7 @@ class NewAppointmentPage extends ConsumerWidget {
     });
 
     final dateHint = state.date == null
-        ? 'Ex: 25 de Outubro de 2026'
+        ? 'Ex: 25 de outubro de 2026'
         : DateFormat("d 'de' MMMM 'de' y", 'pt_BR').format(state.date!);
 
     return Scaffold(
@@ -68,7 +68,7 @@ class NewAppointmentPage extends ConsumerWidget {
               const HeroCard(title: 'Consulta'),
               const SizedBox(height: AppSpacing.lg),
               LabeledTextField(
-                label: 'Nome do Médico',
+                label: 'Nome do médico',
                 hint: 'Ex: Ana Luiza',
                 initialValue: state.doctorName,
                 suffixIcon: Icon(
@@ -81,7 +81,7 @@ class NewAppointmentPage extends ConsumerWidget {
               const SizedBox(height: AppSpacing.md),
               LabeledTextField(
                 label: 'Especialidade',
-                hint: 'Ex: Clínico Geral',
+                hint: 'Ex: Clínico geral',
                 initialValue: state.specialty,
                 suffixIcon: Icon(
                   Icons.straighten,
@@ -158,8 +158,8 @@ class NewAppointmentPage extends ConsumerWidget {
               const SizedBox(height: AppSpacing.xl),
               PrimaryButton(
                 label: appointment == null
-                    ? 'Salvar Consulta'
-                    : 'Salvar Reagendamento',
+                    ? 'Salvar consulta'
+                    : 'Salvar reagendamento',
                 isLoading: state.isLoading,
                 trailingIcon: Icons.check_circle,
                 onPressed: vm.submit,

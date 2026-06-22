@@ -70,7 +70,7 @@ class _NewDependentPageState extends ConsumerState<NewDependentPage> {
               const HeroCard(title: 'Pessoa cuidada'),
               const SizedBox(height: AppSpacing.lg),
               LabeledTextField(
-                label: 'Nome Completo',
+                label: 'Nome completo',
                 labelStyle: LabelStyle.uppercase,
                 hint: 'Ex: João',
                 suffixIcon: Icon(
@@ -82,7 +82,7 @@ class _NewDependentPageState extends ConsumerState<NewDependentPage> {
               ),
               const SizedBox(height: AppSpacing.md),
               LabeledTextField(
-                label: 'Data de Nascimento',
+                label: 'Data de nascimento',
                 labelStyle: LabelStyle.uppercase,
                 hint: '00/00/0000',
                 controller: _birthDateController,
@@ -102,7 +102,7 @@ class _NewDependentPageState extends ConsumerState<NewDependentPage> {
               Padding(
                 padding: const EdgeInsets.only(left: 4, bottom: 8),
                 child: Text(
-                  'GRAU DE PARENTESCO',
+                  'Grau de parentesco',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,

@@ -139,7 +139,7 @@ class MedicationAlertPage extends ConsumerWidget {
           subtitle: 'Seu responsável foi avisado que você concluiu esta ação.',
           buttons: [
             FeedbackButton(
-              label: 'Voltar para o Início',
+              label: 'Voltar para o início',
               onPressed: () => Navigator.of(
                 context,
               ).pushNamedAndRemoveUntil(AppRoutes.home, (_) => false),
@@ -179,7 +179,7 @@ class MedicationAlertPage extends ConsumerWidget {
           subtitle: 'Seu responsável foi avisado que você adiou o remédio.',
           buttons: [
             FeedbackButton(
-              label: 'Voltar para o Início',
+              label: 'Voltar para o início',
               onPressed: () => Navigator.of(
                 context,
               ).pushNamedAndRemoveUntil(AppRoutes.home, (_) => false),

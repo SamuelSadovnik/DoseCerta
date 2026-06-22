@@ -38,7 +38,7 @@ class RegisterPage extends ConsumerWidget {
     });
 
     final heroTitle = accountType == AccountType.personal
-        ? 'Uso Pessoal'
+        ? 'Uso pessoal'
         : 'Responsável';
     final heroSubtitle = accountType == AccountType.personal
         ? 'Cuide dos seus próprios remédios.'
@@ -63,18 +63,18 @@ class RegisterPage extends ConsumerWidget {
               HeroCard(
                 title: heroTitle,
                 subtitle: heroSubtitle,
-                badge: 'SEGURANÇA & CUIDADO',
+                badge: 'Segurança e cuidado',
               ),
               const SizedBox(height: AppSpacing.xl),
               LabeledTextField(
-                label: 'Nome Completo',
+                label: 'Nome completo',
                 prefixIcon: Icons.person_outline,
                 hint: 'Seu nome',
                 onChanged: vm.onNameChanged,
               ),
               const SizedBox(height: AppSpacing.md),
               LabeledTextField(
-                label: 'E-mail de Acesso',
+                label: 'E-mail de acesso',
                 prefixIcon: Icons.mail_outline,
                 hint: 'seu@email.com',
                 keyboardType: TextInputType.emailAddress,
@@ -105,7 +105,7 @@ class RegisterPage extends ConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.lg),
               PrimaryButton(
-                label: 'Finalizar Cadastro',
+                label: 'Finalizar cadastro',
                 isLoading: state.isLoading,
                 onPressed: vm.canSubmit ? vm.submit : null,
               ),
@@ -178,7 +178,7 @@ class _TermsCheckbox extends StatelessWidget {
                     children: [
                       TextSpan(text: 'Li e concordo com os '),
                       TextSpan(
-                        text: 'Termos de Uso',
+                        text: 'Termos de uso',
                         style: TextStyle(
                           color: AppColors.primary,
                           fontWeight: FontWeight.w700,
@@ -186,7 +186,7 @@ class _TermsCheckbox extends StatelessWidget {
                       ),
                       TextSpan(text: ' e a '),
                       TextSpan(
-                        text: 'Política de Privacidade',
+                        text: 'Política de privacidade',
                         style: TextStyle(
                           color: AppColors.primary,
                           fontWeight: FontWeight.w700,

@@ -167,7 +167,7 @@ class _MockDependentRemoteDatasource implements DependentRemoteDatasource {
     await Future<void>.delayed(Duration(milliseconds: 400));
     return DependentDto(
       id: 'dep-${DateTime.now().millisecondsSinceEpoch}',
-      name: 'Dependente Vinculado',
+      name: 'Dependente vinculado',
       relationship: RelationshipType.other,
       status: DependentStatus.active,
       activationCode: code,

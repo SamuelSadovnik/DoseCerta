@@ -11,10 +11,10 @@ class AppointmentSuccessPage extends StatelessWidget {
     return FeedbackPage(
       config: FeedbackPageConfig(
         iconType: FeedbackIconType.successRed,
-        title: 'Cadastro Realizado com Sucesso!',
+        title: 'Cadastro realizado com sucesso!',
         buttons: [
           FeedbackButton(
-            label: 'Ir para Consultas',
+            label: 'Ir para consultas',
             onPressed: () => Navigator.of(
               context,
             ).pushNamedAndRemoveUntil(AppRoutes.appointments, (_) => false),

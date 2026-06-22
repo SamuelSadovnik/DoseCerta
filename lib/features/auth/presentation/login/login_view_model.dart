@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/enums/account_type.dart';
 import '../../../../core/network/api_error.dart';
 import '../../../../core/providers/account_type_provider.dart';
 import '../../../../core/providers/selected_dependent_provider.dart';
@@ -41,11 +40,8 @@ class LoginViewModel extends StateNotifier<LoginState> {
       );
       _ref.read(currentAccountTypeProvider.notifier).state =
           result.user.accountType;
-      _ref
-          .read(selectedCareContextProvider.notifier)
-          .state = result.user.accountType == AccountType.caregiver
-          ? const CareContext.allDependents()
-          : const CareContext.self();
+      _ref.read(selectedCareContextProvider.notifier).state =
+          const CareContext.allDependents();
       _ref.invalidate(currentUserProvider);
       _ref.invalidate(dependentsProvider);
       state = state.copyWith(isLoading: false, loginSuccess: true);

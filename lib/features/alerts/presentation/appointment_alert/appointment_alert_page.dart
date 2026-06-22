@@ -278,7 +278,7 @@ class AppointmentAlertPage extends ConsumerWidget {
         subtitle: subtitle,
         buttons: [
           FeedbackButton(
-            label: 'Voltar para Consultas',
+            label: 'Voltar para consultas',
             onPressed: () => Navigator.of(
               context,
             ).pushNamedAndRemoveUntil(AppRoutes.appointments, (_) => false),
@@ -301,7 +301,7 @@ class AppointmentAlertPage extends ConsumerWidget {
               'Seu responsável foi avisado que você reagendou a consulta.',
           buttons: [
             FeedbackButton(
-              label: 'Voltar para o Início',
+              label: 'Voltar para o início',
               onPressed: () => Navigator.of(
                 context,
               ).pushNamedAndRemoveUntil(AppRoutes.home, (_) => false),

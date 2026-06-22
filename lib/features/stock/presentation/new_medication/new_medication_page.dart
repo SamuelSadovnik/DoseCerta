@@ -85,7 +85,7 @@ class NewMedicationPage extends ConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.xl),
               LabeledTextField(
-                label: 'Nome do Medicamento',
+                label: 'Nome do medicamento',
                 hint: 'Ex: Paracetamol',
                 onChanged: vm.onNameChanged,
               ),
@@ -97,7 +97,7 @@ class NewMedicationPage extends ConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.md),
               LabeledTextField(
-                label: 'Quantidade Disponível',
+                label: 'Quantidade disponível',
                 hint: 'Ex: 42 comprimidos',
                 keyboardType: TextInputType.number,
                 onChanged: vm.onQuantityChanged,
@@ -122,7 +122,7 @@ class NewMedicationPage extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.only(left: 4, bottom: 8),
                   child: Text(
-                    'PARA QUEM É ESTE MEDICAMENTO?',
+                    'Para quem é este medicamento?',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
