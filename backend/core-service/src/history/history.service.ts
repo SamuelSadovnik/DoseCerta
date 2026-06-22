@@ -327,6 +327,16 @@ export class HistoryService {
       return { dependentId, ...extra };
     }
     if (accountType !== 'caregiver') {
+      const linkedRegistries = await this.dependents.find({
+        where: { linkedUserId: userId },
+      });
+      const linkedIds = linkedRegistries.map((dependent) => dependent.id);
+      if (linkedIds.length > 0) {
+        return [
+          { userId, ...extra },
+          { dependentId: In(linkedIds), ...extra },
+        ];
+      }
       return { userId, ...extra };
     }
 

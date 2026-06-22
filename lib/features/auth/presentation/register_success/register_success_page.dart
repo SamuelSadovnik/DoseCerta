@@ -15,7 +15,7 @@ class RegisterSuccessPage extends StatelessWidget {
     if (accountType == AccountType.personal) {
       buttons.add(
         FeedbackButton(
-          label: 'Ir para Início',
+          label: 'Ir para início',
           onPressed: () => Navigator.of(
             context,
           ).pushNamedAndRemoveUntil(AppRoutes.home, (_) => false),
@@ -24,7 +24,7 @@ class RegisterSuccessPage extends StatelessWidget {
     } else {
       buttons.add(
         FeedbackButton(
-          label: 'Ir para Início',
+          label: 'Ir para início',
           onPressed: () => Navigator.of(
             context,
           ).pushNamedAndRemoveUntil(AppRoutes.home, (_) => false),
@@ -45,7 +45,7 @@ class RegisterSuccessPage extends StatelessWidget {
     return FeedbackPage(
       config: FeedbackPageConfig(
         iconType: FeedbackIconType.successRed,
-        title: 'Cadastro Realizado\ncom Sucesso!',
+        title: 'Cadastro realizado\ncom sucesso!',
         subtitle: accountType == AccountType.personal
             ? 'Sua conta está pronta. Vamos cuidar dos seus medicamentos.'
             : 'Sua conta está pronta. Você pode adicionar uma pessoa cuidada agora ou começar pelo início.',

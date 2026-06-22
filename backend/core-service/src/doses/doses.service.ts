@@ -168,7 +168,7 @@ export class DosesService {
     const originalScheduledAt = new Date(dose.scheduledAt);
     const futureDoses = await this.repo.find({
       where: {
-        userId,
+        userId: dose.userId,
         medicationId: dose.medicationId,
         scheduledAt: MoreThan(originalScheduledAt),
         status: In(['pending', 'postponed']),
@@ -223,9 +223,13 @@ export class DosesService {
   private async findOwned(userId: string, id: string): Promise<Dose> {
     const dose = await this.repo.findOne({ where: { id } });
     if (!dose) throw new NotFoundException('Dose não encontrada');
-    if (dose.userId !== userId) {
+    if (dose.userId === userId) {
+      return dose;
+    }
+    if (!dose.dependentId) {
       throw new ForbiddenException('Você não pode alterar esta dose');
     }
+    await this.findAccessibleDependent(userId, dose.dependentId);
     return dose;
   }
 
@@ -259,6 +263,16 @@ export class DosesService {
       return { userId, dependentId: IsNull(), ...extra };
     }
     if (accountType !== 'caregiver') {
+      const linkedRegistries = await this.dependentsRepo.find({
+        where: { linkedUserId: userId },
+      });
+      const linkedIds = linkedRegistries.map((dependent) => dependent.id);
+      if (linkedIds.length > 0) {
+        return [
+          { userId, ...extra },
+          { dependentId: In(linkedIds), ...extra },
+        ];
+      }
       return { userId, ...extra };
     }
 

@@ -11,10 +11,10 @@ class MedicationSuccessPage extends StatelessWidget {
     return FeedbackPage(
       config: FeedbackPageConfig(
         iconType: FeedbackIconType.successRed,
-        title: 'Cadastro Realizado com Sucesso!',
+        title: 'Cadastro realizado com sucesso!',
         buttons: [
           FeedbackButton(
-            label: 'Ir para Estoque',
+            label: 'Ir para estoque',
             onPressed: () => Navigator.of(
               context,
             ).pushNamedAndRemoveUntil(AppRoutes.stock, (_) => false),

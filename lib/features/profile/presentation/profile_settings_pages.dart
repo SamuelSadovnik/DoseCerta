@@ -197,7 +197,7 @@ class _AdditionalInfoPageState extends ConsumerState<AdditionalInfoPage> {
         ref.invalidate(currentUserProvider);
       }
       await ref.read(localCacheProvider).writeJson(_additionalInfoKey, payload);
-      if (mounted) _showMessage(context, 'Cartão de Saúde salvo no banco.');
+      if (mounted) _showMessage(context, 'Cartão de saúde salvo no banco.');
     } catch (e) {
       await ref.read(localCacheProvider).writeJson(_additionalInfoKey, payload);
       if (mounted) {
@@ -216,13 +216,13 @@ class _AdditionalInfoPageState extends ConsumerState<AdditionalInfoPage> {
   @override
   Widget build(BuildContext context) {
     return _SettingsScaffold(
-      title: 'Cartão de Saúde',
+      title: 'Cartão de saúde',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _IntroCard(
             icon: Icons.medical_information_outlined,
-            title: 'Cartão de Saúde',
+            title: 'Cartão de saúde',
             text:
                 'Dados essenciais para você, cuidadores e profissionais de saúde consultarem em situações de urgência.',
           ),
@@ -289,7 +289,7 @@ class _AdditionalInfoPageState extends ConsumerState<AdditionalInfoPage> {
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
-          PrimaryButton(label: 'Salvar Cartão de Saúde', onPressed: _save),
+          PrimaryButton(label: 'Salvar cartão de saúde', onPressed: _save),
           const SizedBox(height: AppSpacing.sm),
           SecondaryButton(
             label: 'Abrir emergência',
@@ -688,7 +688,7 @@ class EmergencyPage extends ConsumerWidget {
         ? 'Escolha uma pessoa cuidada ou use a rede de contatos cadastrada para agir rápido.'
         : hasCaregiver
         ? 'Você está vinculado a ${linkedDependent!.caregiverName}. Use esta tela para chamar ajuda ou consultar seus dados médicos.'
-        : 'Use seus contatos principais, serviços públicos e Cartão de Saúde em uma situação urgente.';
+        : 'Use seus contatos principais, serviços públicos e cartão de saúde em uma situação urgente.';
 
     return _SettingsScaffold(
       title: 'Emergência',
@@ -753,7 +753,7 @@ class EmergencyPage extends ConsumerWidget {
               const Divider(height: 1),
               _EmergencyActionTile(
                 icon: Icons.medical_information_outlined,
-                title: 'Ver Cartão de Saúde',
+                title: 'Ver cartão de saúde',
                 subtitle: 'Alergias, condições, tipo sanguíneo e observações.',
                 onTap: () => Navigator.of(
                   context,
@@ -1518,7 +1518,7 @@ class _HealthSummaryCard extends StatelessWidget {
       return _SettingsCard(
         children: [
           Text(
-            'Cartão de Saúde vazio',
+            'Cartão de saúde vazio',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 6),
@@ -1536,7 +1536,7 @@ class _HealthSummaryCard extends StatelessWidget {
     return _SettingsCard(
       children: [
         Text(
-          'Resumo do Cartão de Saúde',
+          'Resumo do cartão de saúde',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: AppSpacing.sm),

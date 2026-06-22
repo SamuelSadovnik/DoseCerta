@@ -93,7 +93,7 @@ class _DependentsListPageState extends ConsumerState<DependentsListPage> {
                     ),
                     const SizedBox(height: AppSpacing.md),
                     const HeroCard(
-                      title: 'Cuidados Compartilhados',
+                      title: 'Cuidados compartilhados',
                       subtitle:
                           'Acompanhe medicamentos, consultas e vínculos das pessoas sob seu cuidado.',
                       height: 160,

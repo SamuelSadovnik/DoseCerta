@@ -74,7 +74,7 @@ class AccountTypePage extends StatelessWidget {
                     size: 16,
                   ),
                   label: Text(
-                    'Voltar para Login',
+                    'Voltar para login',
                     style: TextStyle(
                       color: AppColors.primary,
                       fontSize: 14,

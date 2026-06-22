@@ -281,7 +281,7 @@ class _DependentDetailPageState extends ConsumerState<DependentDetailPage> {
       setState(() => _dependent = dep);
       ref.invalidate(dependentsProvider);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cartão de Saúde atualizado.')),
+        const SnackBar(content: Text('Cartão de saúde atualizado.')),
       );
     } catch (_) {
       if (!mounted) return;
@@ -558,7 +558,7 @@ class _CareProfileSection extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Cartão de Saúde',
+                      'Cartão de saúde',
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
@@ -766,7 +766,7 @@ class _HealthInfoSheetState extends State<_HealthInfoSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Cartão de Saúde',
+              'Cartão de saúde',
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: AppSpacing.md),
@@ -786,7 +786,7 @@ class _HealthInfoSheetState extends State<_HealthInfoSheet> {
             _SheetField(label: 'Observações', controller: _notes),
             const SizedBox(height: AppSpacing.md),
             PrimaryButton(
-              label: 'Salvar Cartão de Saúde',
+              label: 'Salvar cartão de saúde',
               onPressed: () => Navigator.of(context).pop({
                 'allergies': _allergies.text.trim(),
                 'conditions': _conditions.text.trim(),
